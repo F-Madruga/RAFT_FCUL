@@ -13,17 +13,5 @@ services:
     networks:
       - raft_fcul_network
 
-  client:
-    build:
-      context: .
-      dockerfile: client-dockerfile
-    image: client
-    depends_on:
-      - server
-    command:
-      - ${PORT}
-    networks:
-      - raft_fcul_network
-
 networks:
   raft_fcul_network:
