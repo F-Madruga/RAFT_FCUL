@@ -26,6 +26,7 @@ public class Configuration {
 	public static int getInt(String propertyName, int defaultValue) {
 		load();
 		String property = properties.getProperty(propertyName);
+		System.out.println(property);
 		try {
 			return Integer.parseInt(property);
 		} catch (NumberFormatException ex) {

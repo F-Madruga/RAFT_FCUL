@@ -1,0 +1,29 @@
+version: "3.3"
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server-dockerfile
+    image: server
+    ports:
+      - ${PORT}
+    command:
+      - ${PORT}
+    networks:
+      - raft_fcul_network
+
+  client:
+    build:
+      context: .
+      dockerfile: client-dockerfile
+    image: client
+    depends_on:
+      - server
+    command:
+      - ${PORT}
+    networks:
+      - raft_fcul_network
+
+networks:
+  raft_fcul_network:

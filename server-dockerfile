@@ -1,0 +1,5 @@
+FROM openjdk:alpine
+COPY ./src /usr/src
+WORKDIR /usr/src
+RUN javac ./tfd/server/MainServer.java
+ENTRYPOINT ["java", "tfd/server/MainServer"]
