@@ -1,17 +1,50 @@
 version: "3.3"
 
 services:
-  server:
+  server1:
     build:
       context: .
       dockerfile: server-dockerfile
-    image: server
+    image: raft_server
+    container_name: raft_server_1
     ports:
-      - ${PORT}
-    command:
-      - ${PORT}
+      - ${CLIENT_PORT}
     networks:
       - raft_fcul_network
+    environment:
+      - SERVERS="raft_server_2:raft_server_3"
+    env_file:
+      - .env
+
+  server2:
+    build:
+      context: .
+      dockerfile: server-dockerfile
+    image: raft_server
+    container_name: raft_server_2
+    ports:
+      - ${CLIENT_PORT}
+    networks:
+      - raft_fcul_network
+    environment:
+      - SERVERS="raft_server_1:raft_server_3"
+    env_file:
+      - .env
+
+  server3:
+    build:
+      context: .
+      dockerfile: server-dockerfile
+    image: raft_server
+    container_name: raft_server_3
+    ports:
+      - ${CLIENT_PORT}
+    networks:
+      - raft_fcul_network
+    environment:
+      - SERVERS="raft_server_1:raft_server_2"
+    env_file:
+      - .env
 
 networks:
   raft_fcul_network:

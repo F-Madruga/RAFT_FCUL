@@ -2,10 +2,12 @@ package tfd.configuration;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Properties;
 
 public class Configuration {
 	private static Properties properties = new Properties();
+	private static Map<String, String> env = System.getenv();
 	private static boolean loaded = false;
 
 	public static void load() {
@@ -19,14 +21,13 @@ public class Configuration {
 
 	public static String getString(String propertyName, String defaultValue) {
 		load();
-		String property = properties.getProperty(propertyName);
+		String property = env.containsKey(propertyName) ? env.get(propertyName) : properties.getProperty(propertyName);
 		return property == null ? defaultValue : property;
 	}
 
 	public static int getInt(String propertyName, int defaultValue) {
 		load();
-		String property = properties.getProperty(propertyName);
-		System.out.println(property);
+		String property = env.containsKey(propertyName) ? env.get(propertyName) : properties.getProperty(propertyName);
 		try {
 			return Integer.parseInt(property);
 		} catch (NumberFormatException ex) {
@@ -36,7 +37,7 @@ public class Configuration {
 
 	public static float getFloat(String propertyName, float defaultValue) {
 		load();
-		String property = properties.getProperty(propertyName);
+		String property = env.containsKey(propertyName) ? env.get(propertyName) : properties.getProperty(propertyName);
 		try {
 			return Float.parseFloat(property);
 		} catch (NumberFormatException ex) {
@@ -46,7 +47,7 @@ public class Configuration {
 
 	public static boolean getBoolean(String propertyName, boolean defaultValue) {
 		load();
-		String property = properties.getProperty(propertyName);
+		String property = env.containsKey(propertyName) ? env.get(propertyName) : properties.getProperty(propertyName);
 		return Boolean.parseBoolean(property);
 	}
 
