@@ -1,8 +1,10 @@
 package tfd.server;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.concurrent.ExecutorService;
 
 import tfd.configuration.Configuration;
@@ -23,14 +25,22 @@ public class ServerThread implements Runnable {
 	@Override
 	public void run() {
 		for (String serverIp : servers) {
-			System.out.println("Trying to connect with " + serverIp);
 			try {
-				Socket clientSocket = new Socket(serverIp, this.port);
-				this.clientPool.submit(new ClientThread(clientSocket, this.streamHandler));
-			} catch (Exception e) {
-				System.out.println("Error");
+				if (!InetAddress.getByName(serverIp).equals(InetAddress.getLocalHost())) {
+					try {
+						System.out.println("Trying to connect with server " + serverIp);
+						Socket clientSocket = new Socket(serverIp, this.port);
+						System.out.println("Connected wit server " + serverIp);
+						this.clientPool.submit(new ClientThread(clientSocket, this.streamHandler));
+						if (clientSocket.isConnected()) {
+						}
+					} catch (Exception e) {
+						System.out.println("Server isn't running");
+					}
+				}
+			} catch (UnknownHostException e) {
+				e.printStackTrace();
 			}
-			System.out.println("Connected with " + serverIp);
 		}
 
 		try (ServerSocket serverSocket = new ServerSocket(port)) {

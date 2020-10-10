@@ -17,7 +17,9 @@ public class MainClient {
 		int serverPort = Configuration.getInt("CLIENT_PORT", 8080);
 		Socket socket = null;
 		try {
+			System.out.println("Trying to connect with server " + serverIp);
 			socket = new Socket(serverIp, serverPort);
+			System.out.println("Connected with server " + serverIp);
 		} catch (Exception e) {
 			Configuration.printError("Error connecting to server", e);
 		}

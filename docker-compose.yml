@@ -12,7 +12,7 @@ services:
     networks:
       - raft_fcul_network
     environment:
-      - SERVERS=raft_fcul_server_2:raft_fcul_server_3
+      - SERVERS=raft_fcul_server_1:raft_fcul_server_2:raft_fcul_server_3
     env_file:
       - .env
 
@@ -27,11 +27,9 @@ services:
     networks:
       - raft_fcul_network
     environment:
-      - SERVERS=raft_fcul_server_1:raft_fcul_server_3
+      - SERVERS=raft_fcul_server_1:raft_fcul_server_2:raft_fcul_server_3
     env_file:
       - .env
-#    depends_on:
-#      - server1
 
   server3:
     build:
@@ -44,29 +42,27 @@ services:
     networks:
       - raft_fcul_network
     environment:
-      - SERVERS=raft_fcul_server_1:raft_fcul_server_2
+      - SERVERS=raft_fcul_server_1:raft_fcul_server_2:raft_fcul_server_3
     env_file:
       - .env
-#    depends_on:
-#      - server2
 
-#  client:
-#    build:
-#      context: .
-#      dockerfile: client-dockerfile
-#    image: raft_fcul_client
-#    stdin_open: true
-#    tty: true
-#    networks:
-#      - raft_fcul_network
-#    environment:
-#      - SERVERS=raft_fcul_server_1:raft_fcul_server_2:raft_fcul_server_3
-#    env_file:
-#      - .env
-#    depends_on:
-#      - server1
-#      - server2
-#      - server3
+  client:
+    build:
+      context: .
+      dockerfile: client-dockerfile
+    image: raft_fcul_client
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      - SERVERS=raft_fcul_server_1:raft_fcul_server_2:raft_fcul_server_3
+    env_file:
+      - .env
+    depends_on:
+      - server1
+      - server2
+      - server3
 
 networks:
   raft_fcul_network:
