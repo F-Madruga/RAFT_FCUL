@@ -1,7 +1,9 @@
 package tfd.client;
 
 import java.io.*;
+import java.net.InetAddress;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.Scanner;
@@ -38,7 +40,7 @@ public class MainClient {
 		do {
 			showMenu();
 			try {
-				action = Integer.parseInt(scanner.nextLine());
+				action = 1;//Integer.parseInt(scanner.nextLine());
 				switch (action) {
 					case 0:
 						try {
@@ -50,7 +52,11 @@ public class MainClient {
 						break;
 					case 1:
 						// TODO send requests
-						writer.println("teste");
+						try {
+							writer.println("teste" + InetAddress.getLocalHost().getHostName());
+						} catch (UnknownHostException e) {
+							e.printStackTrace();
+						}
 						try {
 							System.out.println(reader.readLine());
 						} catch (IOException e) {

@@ -32,14 +32,12 @@ public class ServerThread implements Runnable {
 						Socket clientSocket = new Socket(serverIp, this.port);
 						System.out.println("Connected wit server " + serverIp);
 						this.clientPool.submit(new ClientThread(clientSocket, this.streamHandler));
-						if (clientSocket.isConnected()) {
-						}
 					} catch (Exception e) {
 						System.out.println("Server isn't running");
 					}
 				}
 			} catch (UnknownHostException e) {
-				e.printStackTrace();
+				Configuration.printError("Error getting address", e);
 			}
 		}
 

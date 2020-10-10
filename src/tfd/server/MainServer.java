@@ -13,7 +13,9 @@ public class MainServer {
 		String[] servers = Configuration.getString("SERVERS", "").split(":");
 		servers = !servers[0].equals("") ? servers : new String[0];
 
-		new ServerSocket(clientPort, new ClientConnectionHandler(), new String[0]);
-		new ServerSocket(serverPort, new ServerConnectionHandler(), servers);
+		ServerConnectionHandler serverConnectionHandler = new ServerConnectionHandler();
+		ClientConnectionHandler clientConnectionHandler = new ClientConnectionHandler();
+		new ServerSocket(clientPort, clientConnectionHandler, new String[0]);
+		new ServerSocket(serverPort, serverConnectionHandler, servers);
 	}
 }
