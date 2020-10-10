@@ -21,10 +21,6 @@ class ClientThread implements Runnable {
 		try {
 			System.out.println("New client connection.");
 			InputStream inputStream = clientSocket.getInputStream();
-			// InputStreamReader reader = new InputStreamReader(is);
-			// int character = reader.read();
-			// BufferedReader r = new BufferedReader(new InputStreamReader(is));
-			// String line = r.readLine();
 			OutputStream outputStream = clientSocket.getOutputStream();
 			this.streamHandler.setStreams(inputStream, outputStream);
 			clientSocket.close();
