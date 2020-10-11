@@ -1,20 +1,20 @@
 package tfd.client;
 
+import tfd.utils.Configuration;
+import tfd.utils.Printer;
+import tfd.utils.ResponseErrorException;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.TimeZone;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import tfd.utils.Configuration;
-import tfd.utils.Printer;
-import tfd.utils.ResponseErrorException;
-
 public class MainClient {
 
 	public static void main(String[] args) {
-		Configuration.load("env.client.yaml");
-		String[] servers = Configuration.getString("SERVERS", "").split(",");
+		Configuration.load(".env-client");
+		String[] servers = Configuration.getString("SERVERS", "").split(":");
 		int port = Configuration.getInt("PORT", 8080);
 		final RaftClient client = new RaftClient(servers, port);
 		TimerTask task = new TimerTask() {
@@ -32,7 +32,8 @@ public class MainClient {
 			}
 		};
 		Timer timer = new Timer();
-		timer.scheduleAtFixedRate(task, 0, 10000);
+		int timeOut = Configuration.getInt("REQUEST_TIMEOUT", 1000);
+		timer.scheduleAtFixedRate(task, 0, timeOut);
 	}
 
 }

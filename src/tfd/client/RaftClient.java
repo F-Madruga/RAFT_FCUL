@@ -4,7 +4,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.Random;
-
 import tfd.rpc.ClientRequest;
 import tfd.rpc.RPCMessage;
 import tfd.utils.Printer;
@@ -39,6 +38,7 @@ public class RaftClient {
 			Printer.printDebug("Closed connection.");
 		} catch (Exception e) {
 			this.leader = servers[new Random().nextInt(servers.length)];
+			Printer.printError("Error", e);
 			return this.request(message);
 		}
 		switch (response.getMethod()) {
