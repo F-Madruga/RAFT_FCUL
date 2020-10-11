@@ -23,9 +23,4 @@ public class Log {
 		return this.entries.isEmpty();
 	}
 
-	@Override
-	public String toString() {
-		return "Log {entries=" + this.entries.toString() + "}";
-	}
-
 }

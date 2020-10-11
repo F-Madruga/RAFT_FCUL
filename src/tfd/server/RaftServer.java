@@ -5,7 +5,7 @@ public class RaftServer {
 	private StateMachine stateMachine;
 
 	public RaftServer(int clientPort, int serverPort, String[] servers, IClientHandler clientHandler) {
-		stateMachine = new StateMachine(RaftState.FOLLOWER, servers.length + 1);
+		stateMachine = new StateMachine(RaftState.FOLLOWER, servers);
 		ClientConnectionHandler clientConnectionHandler = new ClientConnectionHandler(stateMachine, clientHandler);
 		new ServerSocket(clientPort, clientConnectionHandler);
 		ServerConnectionHandler serverConnectionHandler = new ServerConnectionHandler(stateMachine);

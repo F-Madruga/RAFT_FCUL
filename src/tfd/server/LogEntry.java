@@ -2,28 +2,41 @@ package tfd.server;
 
 import java.io.Serializable;
 import java.sql.Timestamp;
+import java.util.UUID;
 
 public class LogEntry implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 	private Timestamp timestamp;
-	private String message;
+	private int term;
+	private int index;
+	private String data;
 	private String clientId;
 	private String operationId;
 
-	public LogEntry(String message, String clientId, String operationId) {
+	public LogEntry(int term, int index, String message, String clientId) {
 		this.timestamp = new Timestamp(System.currentTimeMillis());
-		this.message = message;
+		this.term = term;
+		this.index = index;
+		this.data = message;
 		this.clientId = clientId;
-		this.operationId = operationId;
+		this.operationId = UUID.randomUUID().toString();
 	}
 
 	public Timestamp getTimestamp() {
 		return this.timestamp;
 	}
 
-	public String getMessage() {
-		return this.message;
+	public int getTerm() {
+		return this.term;
+	}
+
+	public int getIndex() {
+		return this.index;
+	}
+
+	public String getData() {
+		return this.data;
 	}
 
 	public String getClientId() {
@@ -36,7 +49,14 @@ public class LogEntry implements Serializable {
 
 	@Override
 	public String toString() {
-		return "LogEntry{timestamp=" + this.timestamp.toString() + ",message=" + this.message + "}";
+		return "LogEntry {\n"
+				+ "  timestamp: " + this.timestamp.toString() + ",\n"
+				+ "  term: " + this.term + ",\n"
+				+ "  index: " + this.index + ",\n"
+				+ "  data: " + this.data + ",\n"
+				+ "  clientId: " + this.clientId + ",\n"
+				+ "  operationId: " + this.operationId + ",\n"
+				+ "}";
 	}
 
 }
