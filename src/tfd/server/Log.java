@@ -1,33 +1,31 @@
 package tfd.server;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Log implements Serializable {
+public class Log {
 
-    private List<LogEntry> entries;
+	private List<LogEntry> entries;
 
-    public Log() {
-        this.entries = new ArrayList<>();
-    }
+	public Log() {
+		this.entries = new ArrayList<>();
+	}
 
-    void addEntry(LogEntry entry) {
-        this.entries.add(entry);
-    }
+	public void addEntry(LogEntry entry) {
+		this.entries.add(entry);
+	}
 
-    LogEntry getLogEntryOfIndex(int index) {
-        return this.entries.get(index);
-    }
+	public LogEntry getLogEntry(int index) {
+		return this.entries.get(index);
+	}
 
-    boolean isEmpty() {
-        return this.entries.isEmpty();
-    }
+	public boolean isEmpty() {
+		return this.entries.isEmpty();
+	}
 
-    @Override
-    public String toString() {
-        return "Log {" +
-                "entries=" + this.entries.toString() +
-                '}';
-    }
+	@Override
+	public String toString() {
+		return "Log {entries=" + this.entries.toString() + "}";
+	}
+
 }

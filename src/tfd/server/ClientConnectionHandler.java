@@ -1,25 +1,28 @@
 package tfd.server;
 
-import tfd.configuration.Configuration;
-import java.io.*;
+import tfd.rpc.ClientRequest;
+import tfd.rpc.CommandResponse;
+import tfd.rpc.LeaderResponse;
+import tfd.rpc.RPCMessage;
 
-public class ClientConnectionHandler implements IStreamHandler {
+public class ClientConnectionHandler implements IMessageHandler {
+
+	private StateMachine stateMachine;
+	private IClientHandler clientHandler;
+
+	public ClientConnectionHandler(StateMachine stateMachine, IClientHandler clientHandler) {
+		this.stateMachine = stateMachine;
+		this.clientHandler = clientHandler;
+	}
 
 	@Override
-	public void setStreams(InputStream inputStream, OutputStream outputStream) {
-		// TODO Auto-generated method stub
-		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
-		PrintWriter writer = new PrintWriter(outputStream, true);
-		try {
-			String request;
-			do {
-				request = bufferedReader.readLine();
-				System.out.println(request);
-				String response = "Received: " + request;
-				writer.println(response);
-			} while (!request.equals("Exit"));
-		} catch (IOException e) {
-			Configuration.printError("Error receiving client request", e);
+	public RPCMessage handle(RPCMessage message) {
+		if (this.stateMachine.getState() == RaftState.LEADER) {
+			ClientRequest request = (ClientRequest) message;
+			String response = this.clientHandler.execute(request.getMessage());
+			return new CommandResponse(response);
 		}
+		return new LeaderResponse(this.stateMachine.getLeader());
 	}
+
 }

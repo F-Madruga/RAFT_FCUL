@@ -1,82 +1,38 @@
 package tfd.client;
 
-import java.io.*;
-import java.net.InetAddress;
-import java.net.Socket;
-import java.net.UnknownHostException;
-import java.util.Arrays;
-import java.util.Random;
-import java.util.Scanner;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.TimeZone;
+import java.util.Timer;
+import java.util.TimerTask;
 
-import tfd.configuration.Configuration;
+import tfd.utils.Configuration;
+import tfd.utils.Printer;
+import tfd.utils.ResponseErrorException;
 
 public class MainClient {
 
 	public static void main(String[] args) {
-		Configuration.load();
-		String[] servers = Configuration.getString("SERVERS", "").split(":");
-		String serverIp = servers[new Random().nextInt(servers.length)];
-		int serverPort = Configuration.getInt("CLIENT_PORT", 8080);
-		Socket socket = null;
-		try {
-			System.out.println("Trying to connect with server " + serverIp);
-			socket = new Socket(serverIp, serverPort);
-			System.out.println("Connected with server " + serverIp);
-		} catch (Exception e) {
-			Configuration.printError("Error connecting to server", e);
-		}
-		InputStream inputStream = null;
-		OutputStream outputStream = null;
-		try {
-			inputStream = socket.getInputStream();
-			outputStream = socket.getOutputStream();
-		} catch (IOException e) {
-			Configuration.printError("Error getting socket streams", e);
-		}
-		PrintWriter writer = new PrintWriter(outputStream, true);
-		BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-		Scanner scanner = new Scanner(System.in);
-		int action = 0;
-		do {
-			showMenu();
-			try {
-				action = 1;//Integer.parseInt(scanner.nextLine());
-				switch (action) {
-					case 0:
-						try {
-							writer.println("Exit");
-							socket.close();
-						} catch (IOException e) {
-							Configuration.printError("Error closing socket", e);
-						}
-						break;
-					case 1:
-						// TODO send requests
-						try {
-							writer.println("teste" + InetAddress.getLocalHost().getHostName());
-						} catch (UnknownHostException e) {
-							e.printStackTrace();
-						}
-						try {
-							System.out.println(reader.readLine());
-						} catch (IOException e) {
-							Configuration.printError("Error receiving response", e);
-						}
-						break;
-					default:
-						System.out.println("Invalid action");
+		Configuration.load("env.client.yaml");
+		String[] servers = Configuration.getString("SERVERS", "").split(",");
+		int port = Configuration.getInt("PORT", 8080);
+		final RaftClient client = new RaftClient(servers, port);
+		TimerTask task = new TimerTask() {
+			public void run() {
+				try {
+					TimeZone tz = TimeZone.getTimeZone("UTC");
+					SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+					df.setTimeZone(tz);
+					String isoDate = df.format(new Date());
+					String response = client.request(isoDate);
+					Printer.printMessage("[+] Response received from server: " + response);
+				} catch (ResponseErrorException e) {
+					Printer.printError("[-] Error received from server", e);
 				}
-			} catch (NumberFormatException e) {
-				System.out.println("Invalid action");
-				System.out.println("Action must be a number");
 			}
-		} while (action != 0);
-	}
-
-	private static void showMenu() {
-		System.out.println("Select one action:");
-		System.out.println("1 - Send command");
-		System.out.println("0 - Exit");
+		};
+		Timer timer = new Timer();
+		timer.scheduleAtFixedRate(task, 0, 10000);
 	}
 
 }

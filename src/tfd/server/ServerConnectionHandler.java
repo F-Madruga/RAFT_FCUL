@@ -1,21 +1,19 @@
 package tfd.server;
 
-import java.io.*;
+import tfd.rpc.RPCMessage;
 
-public class ServerConnectionHandler implements IStreamHandler {
+public class ServerConnectionHandler implements IMessageHandler {
 
+	private StateMachine stateMachine;
+
+	public ServerConnectionHandler(StateMachine stateMachine) {
+		this.stateMachine = stateMachine;
+	}
 
 	@Override
-	public void setStreams(InputStream inputStream, OutputStream outputStream) {
+	public RPCMessage handle(RPCMessage message) {
 		// TODO Auto-generated method stub
-		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
-		while (true) {
-			try {
-				String request = bufferedReader.readLine();
-				System.out.println(request);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
+		return null;
 	}
+
 }
