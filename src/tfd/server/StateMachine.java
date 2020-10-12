@@ -119,29 +119,36 @@ public class StateMachine extends Observable {
 
 	public void replicateEntry(String data, String clientId) {
 		LogEntry entry = new LogEntry(this.term, this.index + 1, data, clientId);
-		Thread[] threads = new Thread[servers.length - 1];
+		Thread[] threads = new Thread[numberServers];
+		System.out.println(Arrays.toString(servers));
+		System.out.println(servers.length);
         for (int i = 0; i < servers.length; i++) {
             if (!servers[i].equals(leader)) {
                 final int serverIndex = i;
                 threads[i] = new Thread(() -> {
+					System.out.println(serverIndex);
 					try {
 						Socket socket = new Socket(servers[serverIndex], port);
 						ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
 						AppendEntryRequest request = new AppendEntryRequest(entry);
 						oos.writeObject(request);
 						Printer.printDebug("Entry sent to " + servers[serverIndex]);
-						ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
 						try {
-							AppendEntryResponse response = (AppendEntryResponse) ois.readObject();
-							Printer.printDebug(servers[serverIndex] + " response - " + response.getMessage());
-						} catch (ClassNotFoundException e) {
-							Printer.printError("Error receiving response from " + servers[serverIndex], e);
-						} catch (EOFException e) {
-							System.out.println("caught 2!");
+							ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+							try {
+								AppendEntryResponse response = (AppendEntryResponse) ois.readObject();
+								Printer.printDebug(servers[serverIndex] + " response - " + response.getMessage());
+							} catch (ClassNotFoundException e) {
+								Printer.printError("Error receiving response from " + servers[serverIndex], e);
+							} catch (EOFException e) {
+								System.out.println("caught 2!");
+								Thread.currentThread().interrupt();
+							}
+						} catch (Exception e) {
 							Thread.currentThread().interrupt();
 						}
 						Printer.printDebug("Replicate entry on " + servers[serverIndex]);
-						// socket.close();
+						socket.close();
 					} catch (Exception e) {
 						Printer.printError("Error connecting to " + servers[serverIndex], e);
 					}
