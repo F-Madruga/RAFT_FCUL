@@ -74,6 +74,7 @@ public class RaftClient {
 	private RPCMessage send(RPCMessage request) {
 		try {
 			oos.writeObject(request);
+			oos.flush();
 			Printer.printDebug("Sent request: " + request.getMessage());
 			RPCMessage response = (RPCMessage) ois.readObject();
 			Printer.printDebug("Received response: " + response.getMessage());

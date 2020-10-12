@@ -1,5 +1,6 @@
 package tfd.server;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -33,7 +34,12 @@ class ClientThread implements Runnable {
 		try {
 			System.out.println("New client connection.");
 			while (true) {
-				request = (RPCMessage) this.ois.readObject();
+				try {
+					request = (RPCMessage) this.ois.readObject();
+				} catch (EOFException e) {
+					System.out.println("caught!");
+					break;
+				}
 				Printer.printDebug("Received request: " + request.getMessage());
 				if (request.getMethod() == RPCMethod.EXIT_REQUEST) {
 					oos.writeObject(new EmptyResponse());
@@ -41,12 +47,12 @@ class ClientThread implements Runnable {
 				}
 				RPCMessage response = this.handler.handle(request, clientId);
 				this.oos.writeObject(response);
+				this.oos.flush();
 				Printer.printDebug("Sent response: " + response.getMessage());
 			}
 			clientSocket.close();
 		} catch (IOException | ClassNotFoundException e) {
 			Printer.printError("Error connecting to new client", e);
-			Thread.currentThread().interrupt();
 		}
 	}
 }
