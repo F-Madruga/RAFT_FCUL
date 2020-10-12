@@ -1,20 +1,27 @@
 package tfd.server;
 
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 
+import tfd.rpc.EmptyResponse;
 import tfd.rpc.RPCMessage;
+import tfd.rpc.RPCMethod;
 import tfd.utils.Printer;
 
 class ClientThread implements Runnable {
 
 	private final Socket clientSocket;
 	private final IMessageHandler handler;
+	private ObjectInputStream ois;
+	private ObjectOutputStream oos;
 
-	public ClientThread(Socket clientSocket, IMessageHandler handler) {
+	public ClientThread(Socket clientSocket, IMessageHandler handler) throws IOException {
 		this.clientSocket = clientSocket;
 		this.handler = handler;
+		this.ois = new ObjectInputStream(clientSocket.getInputStream());
+		this.oos = new ObjectOutputStream(clientSocket.getOutputStream());
 	}
 
 	@Override
@@ -22,13 +29,17 @@ class ClientThread implements Runnable {
 		RPCMessage request = null;
 		try {
 			System.out.println("New client connection.");
-			ObjectInputStream ois = new ObjectInputStream(clientSocket.getInputStream());
-			request = (RPCMessage) ois.readObject();
-			Printer.printDebug("Received request: " + request.getMessage());
-			ObjectOutputStream oos = new ObjectOutputStream(clientSocket.getOutputStream());
-			RPCMessage response = this.handler.handle(request);
-			oos.writeObject(response);
-			Printer.printDebug("Sent response: " + response.getMessage());
+			while (true) {
+				request = (RPCMessage) this.ois.readObject();
+				Printer.printDebug("Received request: " + request.getMessage());
+				if (request.getMethod() == RPCMethod.EXIT_REQUEST) {
+					oos.writeObject(new EmptyResponse());
+					break;
+				}
+				RPCMessage response = this.handler.handle(request);
+				this.oos.writeObject(response);
+				Printer.printDebug("Sent response: " + response.getMessage());
+			}
 			clientSocket.close();
 		} catch (Exception e) {
 			Printer.printError("Error connecting to new client", e);
