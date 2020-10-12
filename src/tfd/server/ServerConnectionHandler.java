@@ -18,9 +18,10 @@ public class ServerConnectionHandler implements IMessageHandler {
 		switch (message.getMethod()) {
 		case APPEND_ENTRIES: {
 			AppendEntryRequest request = (AppendEntryRequest) message;
-			Printer.printDebug(request.toString());
+			Printer.printDebug("Appending new entry");
 			stateMachine.appendEntry(request.getEntry());
-			AppendEntryResponse response = new AppendEntryResponse("Received message " + message.getMessage());
+			Printer.printDebug("Entry appended");
+			AppendEntryResponse response = new AppendEntryResponse("Received entry");
 			return response;
 		}
 		case REQUEST_VOTE: {
