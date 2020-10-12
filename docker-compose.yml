@@ -11,6 +11,8 @@ services:
       - raft_fcul_network
     environment:
       - SERVERS=raft_fcul_server_1:raft_fcul_server_2:raft_fcul_server_3
+      - LEADER=true
+      - LEADER_NAME=raft_fcul_server_1
     env_file:
       - .env-server
 
@@ -24,6 +26,7 @@ services:
       - raft_fcul_network
     environment:
       - SERVERS=raft_fcul_server_1:raft_fcul_server_2:raft_fcul_server_3
+      - LEADER_NAME=raft_fcul_server_1
     env_file:
       - .env-server
 
@@ -37,6 +40,7 @@ services:
       - raft_fcul_network
     environment:
       - SERVERS=raft_fcul_server_1:raft_fcul_server_2:raft_fcul_server_3
+      - LEADER_NAME=raft_fcul_server_1
     env_file:
       - .env-server
 
@@ -51,6 +55,7 @@ services:
       - raft_fcul_network
     environment:
       - SERVERS=raft_fcul_server_1:raft_fcul_server_2:raft_fcul_server_3
+      - LEADER=raft_fcul_server_1
     env_file:
       - .env-client
     depends_on:
