@@ -5,17 +5,17 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 
-import tfd.configuration.Configuration;
+import tfd.utils.Printer;
 
 public class ServerThread implements Runnable {
 	private final ExecutorService clientPool;
 	private final int port;
-	private final IStreamHandler streamHandler;
+	private final IMessageHandler handler;
 
-	public ServerThread(ExecutorService clientPool, int port, IStreamHandler streamHandler) {
+	public ServerThread(ExecutorService clientPool, int port, IMessageHandler handler) {
 		this.clientPool = clientPool;
 		this.port = port;
-		this.streamHandler = streamHandler;
+		this.handler = handler;
 	}
 
 	@Override
@@ -24,11 +24,11 @@ public class ServerThread implements Runnable {
 			System.out.println("Waiting for clients to connect...");
 			while (true) {
 				Socket clientSocket = serverSocket.accept();
-				this.clientPool.submit(new ClientThread(clientSocket, this.streamHandler));
+				this.clientPool.submit(new ClientThread(clientSocket, this.handler));
 			}
 			// serverSocket.close();
 		} catch (IOException e) {
-			Configuration.printError("Error starting server", e);
+			Printer.printError("Error starting server", e);
 		}
 	}
 }

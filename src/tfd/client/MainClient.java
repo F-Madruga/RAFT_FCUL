@@ -1,36 +1,39 @@
 package tfd.client;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
-import java.util.Random;
+import tfd.utils.Configuration;
+import tfd.utils.Printer;
+import tfd.utils.ResponseErrorException;
 
-import tfd.configuration.Configuration;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.TimeZone;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class MainClient {
 
 	public static void main(String[] args) {
-		Configuration.load();
-		String[] servers = Configuration.getString("SERVERS", "").split(",");
-		String[] serverDetails = servers[new Random().nextInt(servers.length)].split(":");
-		String serverIp = serverDetails[0];
-		int serverPort;
-		serverPort = Integer.parseInt(serverDetails[1]);
-		Socket socket = null;
-		try {
-			socket = new Socket(serverIp, serverPort);
-		} catch (Exception e) {
-			Configuration.printError("Error connecting to server", e);
-		}
-		InputStream inputStream = null;
-		OutputStream outputStream = null;
-		try {
-			inputStream = socket.getInputStream();
-			outputStream = socket.getOutputStream();
-		} catch (IOException e) {
-			Configuration.printError("Error getting socket streams", e);
-		}
+		Configuration.load(".env-client");
+		String[] servers = Configuration.getString("SERVERS", "").split(":");
+		int port = Configuration.getInt("PORT", 8080);
+		final RaftClient client = new RaftClient(servers, port);
+		TimerTask task = new TimerTask() {
+			public void run() {
+				try {
+					TimeZone tz = TimeZone.getTimeZone("UTC");
+					SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+					df.setTimeZone(tz);
+					String isoDate = df.format(new Date());
+					String response = client.request(isoDate);
+					Printer.printMessage("[+] Response received from server: " + response);
+				} catch (ResponseErrorException e) {
+					Printer.printError("[-] Error received from server", e);
+				}
+			}
+		};
+		Timer timer = new Timer();
+		int timeOut = Configuration.getInt("REQUEST_TIMEOUT", 1000);
+		timer.scheduleAtFixedRate(task, 0, timeOut);
 	}
 
 }

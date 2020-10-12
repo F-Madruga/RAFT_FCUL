@@ -1,15 +1,17 @@
 package tfd.server;
 
-import java.io.IOException;
-
-import tfd.configuration.Configuration;
+import tfd.utils.Configuration;
 
 public class MainServer {
 
-	public static void main(String[] args) throws IOException {
-		Configuration.load();
-		new Server(Configuration.getInt("CLIENT_PORT", 8080), new ClientConnectionHandler());
-		new Server(Configuration.getInt("SERVER_PORT", 8080), new ServerConnectionHandler());
+	public static void main(String[] args) {
+		Configuration.load(".env-server");
+		int clientPort = Configuration.getInt("CLIENT_PORT", 8080);
+		int serverPort = Configuration.getInt("SERVER_PORT", 8081);
+		String[] servers = Configuration.getString("SERVERS", "").split(":");
+		servers = !servers[0].equals("") ? servers : new String[0];
+		ClientHandler clientHandler = new ClientHandler();
+		new RaftServer(clientPort, serverPort, servers, clientHandler);
 	}
 
 }
