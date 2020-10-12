@@ -38,7 +38,6 @@ public class RaftClient {
 			Printer.printDebug("Closed connection.");
 		} catch (Exception e) {
 			this.leader = servers[new Random().nextInt(servers.length)];
-			Printer.printError("Error", e);
 			return this.request(message);
 		}
 		switch (response.getMethod()) {
