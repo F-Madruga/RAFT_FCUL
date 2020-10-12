@@ -11,7 +11,7 @@ public class Log {
 		this.entries = new ArrayList<>();
 	}
 
-	public void addEntry(LogEntry entry) {
+	public synchronized void addEntry(LogEntry entry) {
 		this.entries.add(entry);
 	}
 
