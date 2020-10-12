@@ -129,11 +129,12 @@ public class StateMachine extends Observable {
 					ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
 					try {
 						AppendEntryResponse response = (AppendEntryResponse) ois.readObject();
+						Printer.printDebug(server + " response - " + response.getMessage());
 					} catch (ClassNotFoundException e) {
 						Printer.printError("Error receiving response from " + server, e);
 					}
 					Printer.printDebug("Replicate entry on " + server);
-					socket.close();
+					//socket.close();
 				} catch (IOException e) {
 					Printer.printError("Error connecting to " + server, e);
 				}

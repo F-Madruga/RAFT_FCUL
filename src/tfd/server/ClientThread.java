@@ -40,9 +40,13 @@ class ClientThread implements Runnable {
 				this.oos.writeObject(response);
 				Printer.printDebug("Sent response: " + response.getMessage());
 			}
-			clientSocket.close();
 		} catch (Exception e) {
 			Printer.printError("Error connecting to new client", e);
+			try {
+				clientSocket.close();
+			} catch (IOException ioException) {
+				Printer.printError("Error closing socket", e);
+			}
 		}
 	}
 }
