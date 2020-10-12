@@ -14,7 +14,7 @@ public class ServerConnectionHandler implements IMessageHandler {
 	}
 
 	@Override
-	public RPCMessage handle(RPCMessage message) {
+	public RPCMessage handle(RPCMessage message, String clientId) {
 		switch (message.getMethod()) {
 		case APPEND_ENTRIES: {
 			AppendEntryRequest request = (AppendEntryRequest) message;

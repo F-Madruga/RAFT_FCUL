@@ -11,20 +11,19 @@ public class ClientConnectionHandler implements IMessageHandler {
 
 	private StateMachine stateMachine;
 	private IClientHandler clientHandler;
-	private String clientId;
+
 
 	public ClientConnectionHandler(StateMachine stateMachine, IClientHandler clientHandler) {
 		this.stateMachine = stateMachine;
 		this.clientHandler = clientHandler;
-		this.clientId = UUID.randomUUID().toString();
 	}
 
 	@Override
-	public RPCMessage handle(RPCMessage message) {
+	public RPCMessage handle(RPCMessage message, String clientId) {
 		if (this.stateMachine.getState() == RaftState.LEADER) {
 			ClientRequest request = (ClientRequest) message;
 			String response = this.clientHandler.execute(request.getMessage());
-			stateMachine.replicateEntry(request.getMessage(), this.clientId);
+			stateMachine.replicateEntry(request.getMessage(), clientId);
 			return new CommandResponse(response);
 		}
 		return new LeaderResponse(this.stateMachine.getLeader());

@@ -135,7 +135,7 @@ public class StateMachine extends Observable {
 					}
 					Printer.printDebug("Replicate entry on " + server);
 					//socket.close();
-				} catch (IOException e) {
+				} catch (Exception e) {
 					Printer.printError("Error connecting to " + server, e);
 				}
 			}
