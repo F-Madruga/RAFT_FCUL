@@ -5,8 +5,8 @@ import java.io.Serializable;
 public abstract class RPCMessage implements Serializable {
 
 	private static final long serialVersionUID = 1L;
-	private RPCMethod method;
-	private String message;
+	protected RPCMethod method;
+	protected String message;
 
 	public RPCMessage(RPCMethod method, String message) {
 		this.method = method;

@@ -1,16 +1,24 @@
 package tfd.server;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
 import java.util.Observable;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ThreadLocalRandom;
 
+import tfd.rpc.AppendEntryRequest;
+import tfd.rpc.AppendEntryResponse;
 import tfd.utils.Configuration;
+import tfd.utils.Printer;
 
 public class StateMachine extends Observable {
 
 	private RaftState state;
 	private String[] servers;
+	private int port;
 	private Timer timer;
 	private int term = 0;
 	private String leader = null;
@@ -19,9 +27,10 @@ public class StateMachine extends Observable {
 	private int numberServers;
 	private int numberVotes;
 
-	public StateMachine(RaftState state, String[] servers) {
+	public StateMachine(RaftState state, String[] servers, int port) {
 		this.setState(state);
 		this.servers = servers;
+		this.port = port;
 		this.log = new Log();
 		this.numberServers = servers.length + 1;
 		this.numberVotes = 0;
@@ -107,7 +116,24 @@ public class StateMachine extends Observable {
 
 	public void replicateEntry(String data, String clientId) {
 		LogEntry entry = new LogEntry(this.term, this.index + 1, data, clientId);
-		// TODO: send entry to followers
+		for (String server : servers) {
+			try {
+				Socket socket = new Socket(server, port);
+				ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+				AppendEntryRequest request = new AppendEntryRequest(clientId, entry);
+				oos.writeObject(request);
+				ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+				Printer.printDebug("Replicate entry on " + server);
+				try {
+					AppendEntryResponse response = (AppendEntryResponse) ois.readObject();
+				} catch (ClassNotFoundException e) {
+					Printer.printError("Error receiving response from " + server, e);
+				}
+				socket.close();
+			} catch (IOException e) {
+				Printer.printError("Error connecting to " + server, e);
+			}
+		}
 		this.log.addEntry(entry);
 		this.index += 1;
 	}
@@ -116,6 +142,7 @@ public class StateMachine extends Observable {
 		this.log.addEntry(entry);
 		this.term = entry.getTerm();
 		this.index = entry.getIndex();
+		Printer.printDebug(entry.toString());
 		// AppendEntries counts as a heartbeat
 		this.heartbeat();
 	}
