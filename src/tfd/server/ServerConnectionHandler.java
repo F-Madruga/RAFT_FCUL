@@ -1,10 +1,9 @@
 package tfd.server;
 
-import tfd.rpc.ErrorResponse;
-import tfd.rpc.EmptyResponse;
-import tfd.rpc.RPCMessage;
-import tfd.rpc.VoteRequest;
-import tfd.rpc.VoteResponse;
+import tfd.rpc.*;
+import tfd.utils.Printer;
+
+import java.io.ObjectInputStream;
 
 public class ServerConnectionHandler implements IMessageHandler {
 
@@ -18,8 +17,11 @@ public class ServerConnectionHandler implements IMessageHandler {
 	public RPCMessage handle(RPCMessage message) {
 		switch (message.getMethod()) {
 		case APPEND_ENTRIES: {
-			// TODO: process entries
-			break;
+			AppendEntryRequest request = (AppendEntryRequest) message;
+			Printer.printDebug(request.toString());
+			stateMachine.appendEntry(request.getEntry());
+			AppendEntryResponse response = new AppendEntryResponse("Received message " + message.getMessage());
+			return response;
 		}
 		case REQUEST_VOTE: {
 			VoteRequest request = (VoteRequest) message;
