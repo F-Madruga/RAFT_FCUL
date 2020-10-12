@@ -8,6 +8,7 @@ import java.util.Random;
 
 import tfd.rpc.ClientRequest;
 import tfd.rpc.RPCMessage;
+import tfd.utils.Configuration;
 import tfd.utils.Printer;
 import tfd.utils.ResponseErrorException;
 
@@ -23,7 +24,8 @@ public class RaftClient {
 	public RaftClient(String[] servers, int port) {
 		this.servers = servers;
 		this.port = port;
-		this.leader = servers[new Random().nextInt(servers.length)];
+		//this.leader = servers[new Random().nextInt(servers.length)];
+		this.leader = Configuration.getString("LEADER", "raft_fcul_server_1");
 		this.connect();
 	}
 
@@ -33,6 +35,7 @@ public class RaftClient {
 		switch (response.getMethod()) {
 		case LEADER_RESPONSE: {
 			this.leader = response.getMessage();
+			Printer.printDebug("Changing leader");
 			this.connect();
 			return this.request(message);
 		}
@@ -57,10 +60,11 @@ public class RaftClient {
 				this.connection.close();
 			Printer.printDebug("Connecting to server: " + this.leader);
 			this.connection = new Socket(this.leader, this.port);
-			this.ois = new ObjectInputStream(this.connection.getInputStream());
 			this.oos = new ObjectOutputStream(this.connection.getOutputStream());
+			this.ois = new ObjectInputStream(this.connection.getInputStream());
 			Printer.printDebug("Connected to server.");
 		} catch (IOException e) {
+			Printer.printError("Error on connecting", e);
 			try {
 				Thread.sleep(100);
 			} catch (InterruptedException ex) {}

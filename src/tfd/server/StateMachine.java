@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.Arrays;
 import java.util.Observable;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -32,9 +33,10 @@ public class StateMachine extends Observable {
 		this.servers = servers;
 		this.port = port;
 		this.log = new Log();
-		this.numberServers = servers.length + 1;
+		this.numberServers = servers.length;
 		this.numberVotes = 0;
-		this.startElectionTimer();
+		this.leader = Configuration.getString("LEADER_NAME", "raft_fcul_server_1");
+		//this.startElectionTimer();
 	}
 
 	public RaftState getState() {
@@ -117,21 +119,24 @@ public class StateMachine extends Observable {
 	public void replicateEntry(String data, String clientId) {
 		LogEntry entry = new LogEntry(this.term, this.index + 1, data, clientId);
 		for (String server : servers) {
-			try {
-				Socket socket = new Socket(server, port);
-				ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
-				AppendEntryRequest request = new AppendEntryRequest(clientId, entry);
-				oos.writeObject(request);
-				ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
-				Printer.printDebug("Replicate entry on " + server);
+			if (!server.equals(leader)) {
 				try {
-					AppendEntryResponse response = (AppendEntryResponse) ois.readObject();
-				} catch (ClassNotFoundException e) {
-					Printer.printError("Error receiving response from " + server, e);
+					Socket socket = new Socket(server, port);
+					ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+					AppendEntryRequest request = new AppendEntryRequest(entry);
+					oos.writeObject(request);
+					Printer.printDebug("Entry sent to " + server);
+					ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+					try {
+						AppendEntryResponse response = (AppendEntryResponse) ois.readObject();
+					} catch (ClassNotFoundException e) {
+						Printer.printError("Error receiving response from " + server, e);
+					}
+					Printer.printDebug("Replicate entry on " + server);
+					socket.close();
+				} catch (IOException e) {
+					Printer.printError("Error connecting to " + server, e);
 				}
-				socket.close();
-			} catch (IOException e) {
-				Printer.printError("Error connecting to " + server, e);
 			}
 		}
 		this.log.addEntry(entry);
