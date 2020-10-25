@@ -1,0 +1,78 @@
+version: '3.3'
+
+services:
+  # mongodb:
+  #   image: mongo:4.0.12
+  #   ports:
+  #     - 27017:27017
+  #   environment:
+  #     - ME_CONFIG_MONGODB_SERVER=localhost
+  #   restart: on-failure
+  #   depends_on:
+  #     - mongodb
+  #   network_mode: host
+  #   healthcheck:
+  #     test: ['CMD', 'mongod', '--version']
+  #     interval: 10s
+  #     timeout: 10s
+  #     retries: 2
+
+  server1:
+    build:
+      context: .
+      dockerfile: server-dockerfile
+    image: raft_fcul_server
+    container_name: raft_fcul_server_1
+    networks:
+      - raft_fcul_network
+    environment:
+      - SERVERS=raft_fcul_server_2,raft_fcul_server_3
+    env_file:
+      - .env-server
+
+  server2:
+    build:
+      context: .
+      dockerfile: server-dockerfile
+    image: raft_fcul_server
+    container_name: raft_fcul_server_2
+    networks:
+      - raft_fcul_network
+    environment:
+      - SERVERS=raft_fcul_server_1,raft_fcul_server_3
+    env_file:
+      - .env-server
+
+  server3:
+    build:
+      context: .
+      dockerfile: server-dockerfile
+    image: raft_fcul_server
+    container_name: raft_fcul_server_3
+    networks:
+      - raft_fcul_network
+    environment:
+      - SERVERS=raft_fcul_server_1,raft_fcul_server_2
+    env_file:
+      - .env-server
+
+  client:
+    build:
+      context: .
+      dockerfile: client-dockerfile
+    image: raft_fcul_client
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3
+    env_file:
+      - .env-client
+    depends_on:
+      - server1
+      - server2
+      - server3
+
+networks:
+  raft_fcul_network:
