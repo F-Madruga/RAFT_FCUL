@@ -1,6 +1,0 @@
-FROM openjdk:alpine
-COPY ./src /usr/src
-WORKDIR /usr/src
-RUN javac ./tfd/client/MainClient.java
-RUN find ./tfd/rpc -name "*.java" -print | xargs javac
-ENTRYPOINT ["java", "tfd/client/MainClient"]
