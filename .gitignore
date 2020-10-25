@@ -1,41 +1,53 @@
-# Project description
-TFD-2021-Project.pdf
-TFD-2021-ProojectEvaluation.pdf
+# Logs
+logs
+*.log
+npm-debug.log*
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
+# Runtime data
+pids
+*.pid
+*.seed
 
-# Package Files #
-*.jar
-*.war
-*.ear
-
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-
-# Eclipse
-.classpath
-.project
-.settings/
-
-# Intellij
-.idea/
-*.iml
-*.iws
-
-# Mac
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+ehthumbs.db
+Icon?
+Thumbs.db
 
-# Maven
-log/
-target/
+# Babel ES6 compiles files
+dist
+bin
 
-# Inclusions
-!lib/**
+# node-waf configuration
+.lock-wscript
 
-# Compiled Files
-*.class
-bin/
-build/
-/bin1/
-java/build/**
+# Compiled binary addons (http://nodejs.org/api/addons.html)
+build/Release
+
+# Dependency directory
+node_modules
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# SSL
+*.pem
+
+# Notes
+notes/
+
+# TODO files
+todo*
+TODO*
+
+# Secrets
+**/*.key*
+
+# Include templates
+!**/*template*

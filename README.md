@@ -1,7 +1,7 @@
 # RAFT_FCUL
 
 ## Requirements
-* Java
+* Node.js (npm)
 * Docker
 * Docker-compose
 

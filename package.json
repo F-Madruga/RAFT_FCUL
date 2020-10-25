@@ -1,0 +1,72 @@
+{
+  "name": "raft-fcul",
+  "version": "1.0.0",
+  "description": "FCUL TFD 2020/2021 - RAFT implementation.",
+  "main": "dist/server/index.js",
+  "scripts": {
+    "start:server": "ENV_FILE=./config/server.env.yml node -r source-map-support/register dist/server/index.js",
+    "start:client": "ENV_FILE=./config/client.env.yml node -r source-map-support/register dist/client/index.js",
+    "watch:server": "NODE_ENV=development ENV_FILE=./config/server.env.yml nodemon --ext js,jsx,ts,tsx,json,pug --watch src/server --exec \"npm run build:server --silent && npm run start:server --silent\"",
+    "watch:client": "NODE_ENV=development ENV_FILE=./config/client.env.yml nodemon --ext js,jsx,ts,tsx,json,pug --watch src/client --exec \"npm run build:client --silent && npm run start:client --silent\"",
+    "build": "npm run build:client --silent && npm run build:server --silent",
+    "build:utils": "babel --config-file ./babel.config.js --extensions '.js,.jsx,.ts,.tsx' src/utils --out-dir dist/utils --copy-files --source-maps",
+    "build:server": "babel --config-file ./babel.config.js --extensions '.js,.jsx,.ts,.tsx' src/server --out-dir dist/server --copy-files --source-maps",
+    "prebuild:server": "npm run build:utils --silent",
+    "build:client": "babel --config-file ./babel.config.js --extensions '.js,.jsx,.ts,.tsx' src/client --out-dir dist/client --copy-files --source-maps",
+    "prebuild:client": "npm run build:utils --silent",
+    "clean": "rimraf dist",
+    "docker:build:server": "docker build -t raft_fcul_server -f docker/Dockerfile.server .",
+    "docker:build:client": "docker build -t raft_fcul_client -f docker/Dockerfile.client .",
+    "docker:run:server": "docker run --expose=8080,8081,8082 -p 8080:8080/tcp -p 8081:8081/tcp -p 8082:8082/tcp raft_fcul_server",
+    "docker:run:client": "docker run raft_fcul_client",
+    "docker:compose": "docker-compose down --rmi all && docker-compose -f docker/docker-compose.yml up",
+    "lint": "eslint --ext .js,.jsx,.ts,.tsx src/**",
+    "typecheck": "tsc -p ./tsconfig.json 2>&1"
+  },
+  "homepage": "https://github.com/F-Madruga/RAFT_FCUL",
+  "repository": {
+    "type": "git",
+    "url": "ssh://github.com/F-Madruga/RAFT_FCUL.git"
+  },
+  "private": true,
+  "engines": {
+    "node": ">= 12.0.0"
+  },
+  "dependencies": {
+    "axios": "^0.21.0",
+    "bluebird": "^3.7.2",
+    "debug": "^4.2.0",
+    "express": "^4.17.1",
+    "js-yaml": "^3.14.0",
+    "nanoid": "^3.1.15",
+    "paseto": "^1.0.7",
+    "pino": "^6.7.0",
+    "pino-pretty": "^4.3.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.12.1",
+    "@babel/core": "^7.12.3",
+    "@babel/plugin-proposal-class-properties": "^7.12.1",
+    "@babel/preset-env": "^7.12.1",
+    "@babel/preset-typescript": "^7.12.1",
+    "@babel/register": "^7.12.1",
+    "@types/bluebird": "^3.5.32",
+    "@types/debug": "^4.1.5",
+    "@types/express": "^4.17.8",
+    "@types/js-yaml": "^3.12.5",
+    "@types/node": "^14.14.2",
+    "@types/pino": "^6.3.3",
+    "@types/ws": "^7.2.7",
+    "@typescript-eslint/eslint-plugin": "^4.5.0",
+    "@typescript-eslint/parser": "^4.5.0",
+    "cross-env": "^7.0.2",
+    "eslint": "^7.12.0",
+    "eslint-config-airbnb-base": "^14.2.0",
+    "eslint-config-airbnb-typescript": "^12.0.0",
+    "eslint-plugin-import": "^2.22.1",
+    "nodemon": "^2.0.6",
+    "rimraf": "^3.0.2",
+    "source-map-support": "^0.5.19",
+    "typescript": "^4.0.3"
+  }
+}

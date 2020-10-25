@@ -1,0 +1,48 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+    // {
+    //   "type": "typescript",
+    //   "tsconfig": "tsconfig.json",
+    //   "problemMatcher": ["$tsc"],
+    //   "group": {
+    //     "kind": "build",
+    //     "isDefault": true
+    //   }
+    // },
+    {
+      "label": "build",
+      "type": "shell",
+      "detail": "Build Task",
+      "command": "npm run build --silent",
+      "args": [],
+      "isBackground": false,
+      // "options": {
+      //   "env": {},
+      //   "shell": {},
+      //   "cwd": ""
+      // },
+      "runOptions": {
+        "runOn": "default",
+        "reevaluateOnRerun": true
+      },
+      // "dependsOn": [],
+      // "dependsOrder": "sequence",
+      "promptOnClose": true,
+      // "problemMatcher": ["$tsc"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "revealProblems": "onProblem",
+        "panel": "dedicated",
+        "focus": false,
+        // "group": "build",
+        "clear": false,
+        "showReuseMessage": true
+      }
+    }
+  ]
+}
