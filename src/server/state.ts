@@ -148,6 +148,8 @@ export class StateMachine extends EventEmitter {
       committed: false,
     };
     const received: string[] = [];
+    // sends to entry to all servers and appends
+    
     // return Promise.all(this.servers
     //   .map((server) => new Promise((resolve, reject) => {
     //     const ws = new WebSocket(`ws://${server}`);
@@ -193,6 +195,7 @@ export class StateMachine extends EventEmitter {
     this.raftTerm = entry.term;
     this.raftIndex = entry.index;
     // AppendEntries counts as a heartbeat
+    // Add to log
     this.heartbeat();
   };
 
