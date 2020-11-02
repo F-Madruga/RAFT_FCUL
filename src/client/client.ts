@@ -1,6 +1,5 @@
 import Promise from 'bluebird';
 import axios from 'axios';
-
 import logger from '../utils/log.util';
 import { RPCMethod, RPCRequest, RPCResponse } from '../utils/rpc.util';
 import { RPCError, UnrecognizedMethodError } from '../utils/error.util';
@@ -23,6 +22,7 @@ export class RaftClient {
       .map(([h, p]) => [h, p || options.port || 8080].join(':')))];
     this.leader = this.servers[Math.floor(Math.random() * this.servers.length)];
     this.token = '';
+    console.log(this.leader);
   }
 
   public request = (message: string): Promise<string> => this
@@ -50,8 +50,7 @@ export class RaftClient {
     });
 
   private send = (request: RPCRequest) => Promise
-    .resolve(axios.post(this.leader, request,
-      { headers: { Authorization: `Bearer ${this.token}` } }))
+    .resolve(axios.post('/', request, { headers: { Authorization: `Bearer ${this.token}` }, baseURL: `http://${this.leader}` }))
     .tap(() => logger.debug(`Sent request: ${request.method}`))
     .then<RPCResponse>((response) => response.data)
     .tap((response) => logger.debug(`Received response: ${response.method}`));

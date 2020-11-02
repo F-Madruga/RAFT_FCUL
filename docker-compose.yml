@@ -1,4 +1,4 @@
-version: '3.3'
+version: "3.3"
 
 services:
   # mongodb:
@@ -20,7 +20,7 @@ services:
   server1:
     build:
       context: .
-      dockerfile: server-dockerfile
+      dockerfile: ./docker/Dockerfile.server
     image: raft_fcul_server
     container_name: raft_fcul_server_1
     networks:
@@ -28,12 +28,12 @@ services:
     environment:
       - SERVERS=raft_fcul_server_2,raft_fcul_server_3
     env_file:
-      - .env-server
+      - ./config/.env-server
 
   server2:
     build:
       context: .
-      dockerfile: server-dockerfile
+      dockerfile: ./docker/Dockerfile.server
     image: raft_fcul_server
     container_name: raft_fcul_server_2
     networks:
@@ -41,12 +41,12 @@ services:
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_3
     env_file:
-      - .env-server
+      - ./config/.env-server
 
   server3:
     build:
       context: .
-      dockerfile: server-dockerfile
+      dockerfile: ./docker/Dockerfile.server
     image: raft_fcul_server
     container_name: raft_fcul_server_3
     networks:
@@ -54,12 +54,12 @@ services:
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2
     env_file:
-      - .env-server
+      - ./config/.env-server
 
   client:
     build:
       context: .
-      dockerfile: client-dockerfile
+      dockerfile: ./docker/Dockerfile.client
     image: raft_fcul_client
     stdin_open: true
     tty: true
@@ -68,7 +68,7 @@ services:
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3
     env_file:
-      - .env-client
+      - ./config/.env-client
     depends_on:
       - server1
       - server2

@@ -1,8 +1,9 @@
-import '../utils/env.util';
+import dotenv from 'dotenv';
 import logger from '../utils/log.util';
 import { RaftServer } from './server';
 import * as store from './store';
 
+dotenv.config({ path: './config/.env-server' });
 const execute = (message: string) => {
   logger.debug(`New message: ${message}`);
   let response;

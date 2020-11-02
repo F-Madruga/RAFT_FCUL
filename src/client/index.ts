@@ -1,8 +1,10 @@
-import '../utils/env.util';
+import dotenv from 'dotenv';
 import logger from '../utils/log.util';
 import { RaftClient } from './client';
 
+dotenv.config({ path: './config/.env-client' });
 const servers = (process.env.SERVERS || 'localhost').split(',');
+console.log(servers);
 const port = parseInt(process.env.PORT || '8080', 10);
 const requestInterval = parseInt(process.env.REQUEST_INTERVAL || '1000', 10);
 const client = new RaftClient({ servers, port });
