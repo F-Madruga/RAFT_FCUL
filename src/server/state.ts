@@ -2,9 +2,9 @@ import Promise from 'bluebird';
 import axios from 'axios';
 import { nanoid } from 'nanoid';
 import { EventEmitter } from 'events';
+import logger from '../utils/log.util';
 
 import {
-  LogEntry,
   RPCMethod,
   RPCAppendEntriesRequest,
   RPCCommitEntriesRequest,
@@ -12,6 +12,7 @@ import {
   RPCLeaderRequest,
   RPCVoteResponse,
 } from '../utils/rpc.util';
+import { LogEntry, Log } from './log';
 
 export enum RaftState {
   LEADER = 'LEADER',
@@ -53,7 +54,7 @@ export class StateMachine extends EventEmitter {
 
   private raftIndex: number = 0;
 
-  private log: LogEntry[] = [];
+  private log: Log = new Log();
 
   private lastCommitedIndex: number = 0;
 
@@ -138,7 +139,7 @@ export class StateMachine extends EventEmitter {
 
   public replicate = (message: string, clientId: string) => {
     // TODO: fix this mess
-    const entry: LogEntry = {
+    const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
       term: this.raftTerm,
       index: this.raftIndex + 1,
@@ -147,9 +148,27 @@ export class StateMachine extends EventEmitter {
       operationId: nanoid(),
       committed: false,
     };
-    const received: string[] = [];
+
+    const appendRequest: RPCAppendEntriesRequest = {
+      method: RPCMethod.APPEND_ENTRIES_REQUEST,
+      entry: logEntry,
+    };
+
+    const commitRequest: RPCCommitEntriesRequest = {
+      method: RPCMethod.COMMIT_ENTRIES_REQUEST,
+      entry: logEntry,
+    };
+
+    Promise.all(this.servers)
+      .map((server) => Promise
+        .resolve(axios.post('/', appendRequest, { baseURL: `http://${server}` }))
+        .tap(() => logger.debug(`Send append request to ${server}`)))
+      .tap(() => this.append(logEntry))
+      .map((server) => Promise
+        .resolve(axios.post('/', commitRequest, { baseURL: `http://${server}` }))
+        .tap(() => logger.debug(`Send commit request to ${server}`)));
+    // const received: string[] = [];
     // sends to entry to all servers and appends
-    
     // return Promise.all(this.servers
     //   .map((server) => new Promise((resolve, reject) => {
     //     const ws = new WebSocket(`ws://${server}`);
@@ -191,7 +210,7 @@ export class StateMachine extends EventEmitter {
   };
 
   public append = (entry: LogEntry) => {
-    this.log.push(entry);
+    this.log.addEntry(entry);
     this.raftTerm = entry.term;
     this.raftIndex = entry.index;
     // AppendEntries counts as a heartbeat

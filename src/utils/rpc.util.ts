@@ -1,13 +1,3 @@
-export type LogEntry = {
-  timestamp: string,
-  term: number,
-  index: number,
-  data: string,
-  clientId: string,
-  operationId: string,
-  committed: boolean,
-};
-
 export enum RPCMethod {
   COMMAND_REQUEST = 'COMMAND_REQUEST',
   APPEND_ENTRIES_REQUEST = 'APPEND_ENTRIES_REQUEST',
@@ -22,7 +12,7 @@ export enum RPCMethod {
   VOTE_RESPONSE = 'VOTE_RESPONSE',
   HEARTBEAT_RESPONSE = 'HEARTBEAT_RESPONSE',
   EMPTY_RESPONSE = 'EMPTY_RESPONSE',
-  ERROR_RESPONSE = 'ERROR_RESPONSE'
+  ERROR_RESPONSE = 'ERROR_RESPONSE',
 }
 
 export type RPCCommandRequest = {
