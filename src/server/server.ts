@@ -3,7 +3,6 @@ import express, { Router } from 'express';
 import { nanoid } from 'nanoid';
 import http from 'http';
 import { EventEmitter } from 'events';
-
 import logger from '../utils/log.util';
 import {
   RPCMethod,
@@ -86,6 +85,7 @@ export class RaftServer extends EventEmitter {
     //   });
     this.commandServer = express().use(Router().post('/', (req, res) => {
       // if not leader, send leader info
+      console.log(req.body);
       if (this.stateMachine.state !== RaftState.LEADER) {
         const response: RPCLeaderResponse = {
           method: RPCMethod.LEADER_RESPONSE,

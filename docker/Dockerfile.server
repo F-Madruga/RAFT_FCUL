@@ -15,7 +15,7 @@ COPY ./package.json $WORK_DIR/
 RUN npm install --production=false > /dev/null
 COPY ./src/server $WORK_DIR/src/server
 COPY ./src/utils $WORK_DIR/src/utils
-RUN npm run build:prod --silent
+RUN npm run build:server --silent
 RUN npm prune --production
 # final image
 FROM node:12.18.2-alpine
@@ -26,4 +26,4 @@ WORKDIR $WORK_DIR
 COPY --from=builder $WORK_DIR/node_modules $WORK_DIR/node_modules
 COPY --from=builder $WORK_DIR/dist $WORK_DIR/dist
 COPY --from=builder $WORK_DIR/package*.json $WORK_DIR/
-CMD [ "npm", "run", "start:prod", "--silent" ]
+CMD [ "npm", "run", "start:server", "--silent" ]
