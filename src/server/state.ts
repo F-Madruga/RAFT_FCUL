@@ -103,17 +103,19 @@ export class StateMachine extends EventEmitter {
       term: this.raftTerm,
       index: this.raftIndex,
     };
-    return Promise.all(this.servers.map((server) => Promise
-      .resolve(axios.post(server, request))
-      .then((response) => response.data)
-      .tap((response: RPCVoteResponse) => response.vote === true && this.vote())
-      .catch(() => undefined)));
+    return Promise.all(this.servers
+      .filter((s) => !s.startsWith(this.host.split(':')[0]))
+      .map((server) => Promise
+        .resolve(axios.post(server, request))
+        .then((response) => response.data)
+        .tap((response: RPCVoteResponse) => response.vote === true && this.vote())
+        .catch(() => undefined)));
   };
 
   public vote = () => {
     if (this.raftState === RaftState.CANDIDATE) {
       this.numberVotes += 1;
-      if (this.numberVotes > (this.servers.length + 1) / 2) {
+      if (this.numberVotes > this.servers.length / 2) {
         this.numberVotes = 0;
         if (this.electionTimer) clearTimeout(this.electionTimer);
         this.setState = RaftState.LEADER;
@@ -122,9 +124,11 @@ export class StateMachine extends EventEmitter {
           message: this.host,
           term: this.raftTerm,
         };
-        return Promise.all(this.servers.map((server) => Promise
-          .resolve(axios.post(server, request))
-          .catch(() => undefined)));
+        return Promise.all(this.servers
+          .filter((s) => !s.startsWith(this.host.split(':')[0]))
+          .map((server) => Promise
+            .resolve(axios.post(server, request))
+            .catch(() => undefined)));
       }
     }
     return undefined;
@@ -159,7 +163,7 @@ export class StateMachine extends EventEmitter {
       entry: logEntry,
     };
 
-    Promise.all(this.servers)
+    Promise.all(this.servers.filter((s) => !s.startsWith(this.host.split(':')[0])))
       .map((server) => Promise
         .resolve(axios.post('/', appendRequest, { baseURL: `http://${server}` }))
         .tap(() => logger.debug(`Send append request to ${server}`)))
