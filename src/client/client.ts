@@ -22,7 +22,6 @@ export class RaftClient {
       .map(([h, p]) => [h, p || options.port || 8080].join(':')))];
     this.leader = this.servers[Math.floor(Math.random() * this.servers.length)];
     this.token = '';
-    console.log(this.leader);
   }
 
   public request = (message: string): Promise<string> => this
@@ -50,7 +49,8 @@ export class RaftClient {
     });
 
   private send = (request: RPCRequest) => Promise
-    .resolve(axios.post('/', request, { headers: { Authorization: `Bearer ${this.token}` }, baseURL: `http://${this.leader}` }))
+    .resolve(axios.post(`http://${this.leader}`, request,
+      { headers: { Authorization: `Bearer ${this.token}` } }))
     .tap(() => logger.debug(`Sent request: ${request.method}`))
     .then<RPCResponse>((response) => response.data)
     .tap((response) => logger.debug(`Received response: ${response.method}`));

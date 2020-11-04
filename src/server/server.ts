@@ -1,5 +1,6 @@
 import Promise from 'bluebird';
 import express, { Router } from 'express';
+import bodyParser from 'body-parser';
 import { nanoid } from 'nanoid';
 import http from 'http';
 import { EventEmitter } from 'events';
@@ -83,9 +84,8 @@ export class RaftServer extends EventEmitter {
     //       return ws.send(JSON.stringify(response));
     //     });
     //   });
-    this.commandServer = express().use(Router().post('/', (req, res) => {
+    this.commandServer = express().use(bodyParser.json()).use(Router().post('/', (req, res) => {
       // if not leader, send leader info
-      console.log(req.body);
       if (this.stateMachine.state !== RaftState.LEADER) {
         const response: RPCLeaderResponse = {
           method: RPCMethod.LEADER_RESPONSE,
@@ -95,7 +95,7 @@ export class RaftServer extends EventEmitter {
       }
       // const token = ((req.headers.authorization || '').match(/Bearer\s*(.*)/) || [])[1];
       const clientId = nanoid(32);
-      const request: RPCClientRequest = JSON.parse(req.body);
+      const request: RPCClientRequest = req.body;
       switch (request.method) {
         case RPCMethod.COMMAND_REQUEST: {
           return Promise.try(() => this.stateMachine.replicate(request.message, clientId))
@@ -118,8 +118,8 @@ export class RaftServer extends EventEmitter {
     }))
       .listen(this.clientPort,
         () => logger.info(`Listening for client connections on port ${this.clientPort}`));
-    this.raftServer = express().use(Router().post('/', (req, res) => {
-      const request: RPCServerRequest = JSON.parse(req.body);
+    this.raftServer = express().use(bodyParser.json()).use(Router().post('/', (req, res) => {
+      const request: RPCServerRequest = req.body;
       switch (request.method) {
         case RPCMethod.APPEND_ENTRIES_REQUEST: {
           const response: RPCAppendEntriesResponse = { method: RPCMethod.APPEND_ENTRIES_RESPONSE };
