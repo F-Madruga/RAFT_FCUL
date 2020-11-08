@@ -61,13 +61,14 @@ export class StateMachine extends EventEmitter {
   constructor(options: StateMachineOptions) {
     super();
     this.raftState = options.initialState || RaftState.FOLLOWER;
-    this.minimumElectionTimeout = options.minimumElectionTimeout || 150;
-    this.maximumElectionTimeout = options.maximumElectionTimeout || 300;
+    this.minimumElectionTimeout = options.minimumElectionTimeout || 15000;
+    this.maximumElectionTimeout = options.maximumElectionTimeout || 30000;
     const [host, port] = options.host.split(':');
     this.host = [host, port || options.port || 8081].join(':');
     this.servers = [...new Set(options.servers
       .map((s) => s.split(':'))
       .map(([h, p]) => [h, p || options.port || 8081].join(':')))];
+    console.log(this.servers);
     this.startElectionTimer();
   }
 
@@ -106,7 +107,7 @@ export class StateMachine extends EventEmitter {
     return Promise.all(this.servers
       .filter((s) => !s.startsWith(this.host.split(':')[0]))
       .map((server) => Promise
-        .resolve(axios.post(server, request))
+        .resolve(axios.post(`http://${server}`, request))
         .then((response) => response.data)
         .tap((response: RPCVoteResponse) => response.vote === true && this.vote())
         .catch(() => undefined)));
@@ -127,7 +128,7 @@ export class StateMachine extends EventEmitter {
         return Promise.all(this.servers
           .filter((s) => !s.startsWith(this.host.split(':')[0]))
           .map((server) => Promise
-            .resolve(axios.post(server, request))
+            .resolve(axios.post(`http://${server}`, request))
             .catch(() => undefined)));
       }
     }

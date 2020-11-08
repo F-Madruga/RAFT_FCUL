@@ -54,3 +54,6 @@ TODO*
 
 # Include templates
 !**/*template*
+
+# Pdf
+*.pdf

@@ -144,14 +144,14 @@ export class RaftServer extends EventEmitter {
           const response: RPCVoteResponse = { method: RPCMethod.VOTE_RESPONSE, vote: true };
           return res.json(response);
         }
-        // case RPCMethod.LEADER_REQUEST: {
-        //   this.stateMachine.setLeader(request.message, request.term);
-        //   const response: RPCLeaderResponse = {
-        //     method: RPCMethod.LEADER_RESPONSE,
-        //     message: request.message,
-        //   };
-        //   return res.json(response);
-        // }
+        case RPCMethod.LEADER_REQUEST: {
+          this.stateMachine.setLeader(request.message, request.term);
+          const response: RPCLeaderResponse = {
+            method: RPCMethod.LEADER_RESPONSE,
+            message: request.message,
+          };
+          return res.json(response);
+        }
         // case RPCMethod.HEARTBEAT_REQUEST: {
         //   this.stateMachine.heartbeat();
         //   const response: RPCHeartbeatResponse = { method: RPCMethod.HEARTBEAT_RESPONSE };
