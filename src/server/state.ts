@@ -11,6 +11,7 @@ import {
   RPCRequestVoteRequest,
   RPCLeaderRequest,
   RPCVoteResponse,
+  RPCHeartbeatRequest,
 } from '../utils/rpc.util';
 import { LogEntry, Log } from './log';
 
@@ -27,6 +28,7 @@ export type StateMachineOptions = {
   initialState?: RaftState,
   minimumElectionTimeout?: number,
   maximumElectionTimeout?: number,
+  heartbeatTimeout?: number,
 };
 
 export class StateMachine extends EventEmitter {
@@ -41,6 +43,8 @@ export class StateMachine extends EventEmitter {
   private minimumElectionTimeout: number;
 
   private maximumElectionTimeout: number;
+
+  private heartbeatTimeout: number;
 
   private numberVotes: number = 0;
 
@@ -61,14 +65,14 @@ export class StateMachine extends EventEmitter {
   constructor(options: StateMachineOptions) {
     super();
     this.raftState = options.initialState || RaftState.FOLLOWER;
-    this.minimumElectionTimeout = options.minimumElectionTimeout || 15000;
-    this.maximumElectionTimeout = options.maximumElectionTimeout || 30000;
+    this.minimumElectionTimeout = options.minimumElectionTimeout || 150;
+    this.maximumElectionTimeout = options.maximumElectionTimeout || 300;
+    this.heartbeatTimeout = options.heartbeatTimeout || 50;
     const [host, port] = options.host.split(':');
     this.host = [host, port || options.port || 8081].join(':');
     this.servers = [...new Set(options.servers
       .map((s) => s.split(':'))
       .map(([h, p]) => [h, p || options.port || 8081].join(':')))];
-    console.log(this.servers);
     this.startElectionTimer();
   }
 
@@ -98,7 +102,7 @@ export class StateMachine extends EventEmitter {
     this.raftTerm += 1;
     this.numberVotes = 0;
     this.startElectionTimer();
-    this.vote();
+    // this.vote();
     const request: RPCRequestVoteRequest = {
       method: RPCMethod.REQUEST_VOTE_REQUEST,
       term: this.raftTerm,
@@ -129,7 +133,8 @@ export class StateMachine extends EventEmitter {
           .filter((s) => !s.startsWith(this.host.split(':')[0]))
           .map((server) => Promise
             .resolve(axios.post(`http://${server}`, request))
-            .catch(() => undefined)));
+            .catch(() => undefined)))
+          .then(() => this.startHeartbeatTimer());
       }
     }
     return undefined;
@@ -139,6 +144,7 @@ export class StateMachine extends EventEmitter {
     this.raftState = RaftState.FOLLOWER;
     this.raftLeader = leader;
     this.raftTerm = term;
+    logger.debug(`Changing leader: ${leader}`);
     this.startElectionTimer();
   };
 
@@ -212,6 +218,25 @@ export class StateMachine extends EventEmitter {
     //       }
     //       return undefined;
     //     })));
+  };
+
+  private startHeartbeatTimer = () => {
+    if (this.heartbeatTimer) clearTimeout(this.heartbeatTimer);
+    const task = this.sendHeartBeat;
+    this.heartbeatTimer = setTimeout(() => task(), this.heartbeatTimeout);
+  };
+
+  private sendHeartBeat = () => {
+    const request: RPCHeartbeatRequest = {
+      method: RPCMethod.HEARTBEAT_REQUEST,
+    };
+    this.startHeartbeatTimer();
+    return Promise.all(this.servers
+      .filter((s) => !s.startsWith(this.host.split(':')[0]))
+      .map((server) => Promise
+        .resolve(axios.post(`http://${server}`, request))
+        .then((response) => response.data)
+        .catch(() => undefined)));
   };
 
   public append = (entry: LogEntry) => {

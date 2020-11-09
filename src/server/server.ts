@@ -13,6 +13,7 @@ import {
   RPCErrorResponse,
   RPCVoteResponse,
   RPCAppendEntriesResponse,
+  RPCHeartbeatResponse,
   RPCCommandResponse,
 } from '../utils/rpc.util';
 import { RaftState, StateMachine } from './state';
@@ -134,6 +135,7 @@ export class RaftServer extends EventEmitter {
         // }
         case RPCMethod.REQUEST_VOTE_REQUEST: {
           // vote NO if: local term is greater OR (term is equal AND local index is greater)
+          logger.debug('Receive vote request');
           if (this.stateMachine.term > request.term
             || (this.stateMachine.term === request.term
               && this.stateMachine.index > request.index)) {
@@ -145,6 +147,7 @@ export class RaftServer extends EventEmitter {
           return res.json(response);
         }
         case RPCMethod.LEADER_REQUEST: {
+          logger.debug('Receive leader request');
           this.stateMachine.setLeader(request.message, request.term);
           const response: RPCLeaderResponse = {
             method: RPCMethod.LEADER_RESPONSE,
@@ -152,11 +155,11 @@ export class RaftServer extends EventEmitter {
           };
           return res.json(response);
         }
-        // case RPCMethod.HEARTBEAT_REQUEST: {
-        //   this.stateMachine.heartbeat();
-        //   const response: RPCHeartbeatResponse = { method: RPCMethod.HEARTBEAT_RESPONSE };
-        //   return res.json(response);
-        // }
+        case RPCMethod.HEARTBEAT_REQUEST: {
+          this.stateMachine.heartbeat();
+          const response: RPCHeartbeatResponse = { method: RPCMethod.HEARTBEAT_RESPONSE };
+          return res.json(response);
+        }
         default:
           break;
       }

@@ -5,7 +5,7 @@ import { RaftClient } from './client';
 load(process.env.ENV_FILE || './config/.env-client');
 const servers = (process.env.SERVERS || 'localhost').split(',');
 const port = parseInt(process.env.PORT || '8080', 10);
-const requestInterval = parseInt(process.env.REQUEST_INTERVAL || '1000', 10);
+const requestInterval = parseInt(process.env.REQUEST_INTERVAL || '5000', 10);
 const client = new RaftClient({ servers, port });
 logger.info('Started client.');
 setInterval(() => {
