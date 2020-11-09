@@ -171,13 +171,17 @@ export class StateMachine extends EventEmitter {
     };
 
     Promise.all(this.servers.filter((s) => !s.startsWith(this.host.split(':')[0])))
+      .tap(() => logger.debug('Appending entry'))
+      .tap(() => this.append(logEntry))
+      .tap(() => logger.debug('Sending append entry request to the other servers'))
       .map((server) => Promise
         .resolve(axios.post('/', appendRequest, { baseURL: `http://${server}` }))
-        .tap(() => logger.debug(`Send append request to ${server}`)))
-      .tap(() => this.append(logEntry))
+        .tap(() => logger.debug(`Append request sent to ${server}`)))
+      // .tap(() => this.commitEntry())
+      .tap(() => logger.debug('Sending commit entry request to the other servers'))
       .map((server) => Promise
         .resolve(axios.post('/', commitRequest, { baseURL: `http://${server}` }))
-        .tap(() => logger.debug(`Send commit request to ${server}`)));
+        .tap(() => logger.debug(`Commit request sent to ${server}`)));
     // const received: string[] = [];
     // sends to entry to all servers and appends
     // return Promise.all(this.servers
@@ -243,10 +247,16 @@ export class StateMachine extends EventEmitter {
     this.log.addEntry(entry);
     this.raftTerm = entry.term;
     this.raftIndex = entry.index;
+    logger.debug('Entry appended');
     // AppendEntries counts as a heartbeat
     // Add to log
     this.heartbeat();
   };
+
+  // public commitEntry = () => {
+  //   // TO DO
+  //   logger.debug('Entry commited');
+  // }
 
   public heartbeat = () => this.startElectionTimer();
 }

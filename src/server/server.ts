@@ -15,6 +15,7 @@ import {
   RPCAppendEntriesResponse,
   RPCHeartbeatResponse,
   RPCCommandResponse,
+  RPCCommitEntriesResponse,
 } from '../utils/rpc.util';
 import { RaftState, StateMachine } from './state';
 
@@ -90,7 +91,7 @@ export class RaftServer extends EventEmitter {
       if (this.stateMachine.state !== RaftState.LEADER) {
         const response: RPCLeaderResponse = {
           method: RPCMethod.LEADER_RESPONSE,
-          message: this.stateMachine.leader || '',
+          message: this.stateMachine.leader?.split(':')[0] || '',
         };
         return res.json(response);
       }
@@ -123,16 +124,21 @@ export class RaftServer extends EventEmitter {
       const request: RPCServerRequest = req.body;
       switch (request.method) {
         case RPCMethod.APPEND_ENTRIES_REQUEST: {
+          logger.debug('Receive append entries request');
           const response: RPCAppendEntriesResponse = { method: RPCMethod.APPEND_ENTRIES_RESPONSE };
           return Promise.try(() => this.stateMachine.append(request.entry))
-            .tap(() => options.handler(request.entry.data))
+            tap(() => options.handler(request.entry.data))
             .tap(() => logger.debug('Entry appended'))
             .tap(() => res.json(response));
         }
-        // case RPCMethod.COMMIT_ENTRIES_REQUEST: {
-        //   // TODO: commit entries
-        //   break;
-        // }
+        case RPCMethod.COMMIT_ENTRIES_REQUEST: {
+          logger.debug('Receive commit entries request');
+          const response: RPCCommitEntriesResponse = {
+            method: RPCMethod.COMMIT_ENTRIES_RESPONSE,
+          };
+          // this.stateMachine.commitEntry();
+          return res.json(response);
+        }
         case RPCMethod.REQUEST_VOTE_REQUEST: {
           // vote NO if: local term is greater OR (term is equal AND local index is greater)
           logger.debug('Receive vote request');
@@ -147,7 +153,7 @@ export class RaftServer extends EventEmitter {
           return res.json(response);
         }
         case RPCMethod.LEADER_REQUEST: {
-          logger.debug('Receive leader request');
+          logger.debug(`Receive leader from: ${request.message}`);
           this.stateMachine.setLeader(request.message, request.term);
           const response: RPCLeaderResponse = {
             method: RPCMethod.LEADER_RESPONSE,
