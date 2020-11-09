@@ -29,8 +29,8 @@ export class RaftClient {
     .then((response) => {
       switch (response.method) {
         case RPCMethod.LEADER_RESPONSE: {
-          this.leader = response.message;
-          logger.debug(`Changing leader: ${response.message}`);
+          this.leader = `${response.message}:${this.leader.split(':')[1]}`; // não é o melhor código
+          logger.debug(`Changing leader: ${this.leader}`);
           return this.request(message);
         }
         case RPCMethod.COMMAND_RESPONSE: {

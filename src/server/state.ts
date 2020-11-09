@@ -11,6 +11,7 @@ import {
   RPCRequestVoteRequest,
   RPCLeaderRequest,
   RPCVoteResponse,
+  RPCHeartbeatRequest,
 } from '../utils/rpc.util';
 import { LogEntry, Log } from './log';
 
@@ -27,6 +28,7 @@ export type StateMachineOptions = {
   initialState?: RaftState,
   minimumElectionTimeout?: number,
   maximumElectionTimeout?: number,
+  heartbeatTimeout?: number,
 };
 
 export class StateMachine extends EventEmitter {
@@ -41,6 +43,8 @@ export class StateMachine extends EventEmitter {
   private minimumElectionTimeout: number;
 
   private maximumElectionTimeout: number;
+
+  private heartbeatTimeout: number;
 
   private numberVotes: number = 0;
 
@@ -63,6 +67,7 @@ export class StateMachine extends EventEmitter {
     this.raftState = options.initialState || RaftState.FOLLOWER;
     this.minimumElectionTimeout = options.minimumElectionTimeout || 150;
     this.maximumElectionTimeout = options.maximumElectionTimeout || 300;
+    this.heartbeatTimeout = options.heartbeatTimeout || 50;
     const [host, port] = options.host.split(':');
     this.host = [host, port || options.port || 8081].join(':');
     this.servers = [...new Set(options.servers
@@ -97,7 +102,7 @@ export class StateMachine extends EventEmitter {
     this.raftTerm += 1;
     this.numberVotes = 0;
     this.startElectionTimer();
-    this.vote();
+    // this.vote();
     const request: RPCRequestVoteRequest = {
       method: RPCMethod.REQUEST_VOTE_REQUEST,
       term: this.raftTerm,
@@ -106,7 +111,7 @@ export class StateMachine extends EventEmitter {
     return Promise.all(this.servers
       .filter((s) => !s.startsWith(this.host.split(':')[0]))
       .map((server) => Promise
-        .resolve(axios.post(server, request))
+        .resolve(axios.post(`http://${server}`, request))
         .then((response) => response.data)
         .tap((response: RPCVoteResponse) => response.vote === true && this.vote())
         .catch(() => undefined)));
@@ -127,8 +132,9 @@ export class StateMachine extends EventEmitter {
         return Promise.all(this.servers
           .filter((s) => !s.startsWith(this.host.split(':')[0]))
           .map((server) => Promise
-            .resolve(axios.post(server, request))
-            .catch(() => undefined)));
+            .resolve(axios.post(`http://${server}`, request))
+            .catch(() => undefined)))
+          .then(() => this.startHeartbeatTimer());
       }
     }
     return undefined;
@@ -138,6 +144,7 @@ export class StateMachine extends EventEmitter {
     this.raftState = RaftState.FOLLOWER;
     this.raftLeader = leader;
     this.raftTerm = term;
+    logger.debug(`Changing leader: ${leader}`);
     this.startElectionTimer();
   };
 
@@ -164,13 +171,17 @@ export class StateMachine extends EventEmitter {
     };
 
     Promise.all(this.servers.filter((s) => !s.startsWith(this.host.split(':')[0])))
+      .tap(() => logger.debug('Appending entry'))
+      .tap(() => this.append(logEntry))
+      .tap(() => logger.debug('Sending append entry request to the other servers'))
       .map((server) => Promise
         .resolve(axios.post('/', appendRequest, { baseURL: `http://${server}` }))
-        .tap(() => logger.debug(`Send append request to ${server}`)))
-      .tap(() => this.append(logEntry))
+        .tap(() => logger.debug(`Append request sent to ${server}`)))
+      // .tap(() => this.commitEntry())
+      .tap(() => logger.debug('Sending commit entry request to the other servers'))
       .map((server) => Promise
         .resolve(axios.post('/', commitRequest, { baseURL: `http://${server}` }))
-        .tap(() => logger.debug(`Send commit request to ${server}`)));
+        .tap(() => logger.debug(`Commit request sent to ${server}`)));
     // const received: string[] = [];
     // sends to entry to all servers and appends
     // return Promise.all(this.servers
@@ -213,14 +224,39 @@ export class StateMachine extends EventEmitter {
     //     })));
   };
 
+  private startHeartbeatTimer = () => {
+    if (this.heartbeatTimer) clearTimeout(this.heartbeatTimer);
+    const task = this.sendHeartBeat;
+    this.heartbeatTimer = setTimeout(() => task(), this.heartbeatTimeout);
+  };
+
+  private sendHeartBeat = () => {
+    const request: RPCHeartbeatRequest = {
+      method: RPCMethod.HEARTBEAT_REQUEST,
+    };
+    this.startHeartbeatTimer();
+    return Promise.all(this.servers
+      .filter((s) => !s.startsWith(this.host.split(':')[0]))
+      .map((server) => Promise
+        .resolve(axios.post(`http://${server}`, request))
+        .then((response) => response.data)
+        .catch(() => undefined)));
+  };
+
   public append = (entry: LogEntry) => {
     this.log.addEntry(entry);
     this.raftTerm = entry.term;
     this.raftIndex = entry.index;
+    logger.debug('Entry appended');
     // AppendEntries counts as a heartbeat
     // Add to log
     this.heartbeat();
   };
+
+  // public commitEntry = () => {
+  //   // TO DO
+  //   logger.debug('Entry commited');
+  // }
 
   public heartbeat = () => this.startElectionTimer();
 }

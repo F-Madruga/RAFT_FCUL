@@ -20,6 +20,7 @@
     "docker:run:server": "docker run --expose=8080,8081,8082 -p 8080:8080/tcp -p 8081:8081/tcp -p 8082:8082/tcp raft_fcul_server",
     "docker:run:client": "docker run raft_fcul_client",
     "docker:compose": "docker-compose down --rmi all && docker-compose up",
+    "docker:clean": "docker image prune -a -f && docker-compose down --rmi all",
     "lint": "eslint --ext .js,.jsx,.ts,.tsx src/**",
     "typecheck": "tsc -p ./tsconfig.json 2>&1"
   },

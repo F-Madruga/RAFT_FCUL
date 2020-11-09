@@ -27,8 +27,14 @@ services:
       - raft_fcul_network
     environment:
       - SERVERS=raft_fcul_server_2,raft_fcul_server_3
-    env_file:
-      - ./config/.env-server
+      - HOST=raft_fcul_server_1
+      - LOG_LEVEL=debug
+      - CLIENT_PORT=8080
+      - SERVER_PORT=8081
+      - ELECTION_TIMEOUT=300
+      - HEARTBEAT_TIMEOUT=50
+    # env_file:
+    #   - ./config/.env-server
 
   server2:
     build:
@@ -40,8 +46,14 @@ services:
       - raft_fcul_network
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_3
-    env_file:
-      - ./config/.env-server
+      - HOST=raft_fcul_server_2
+      - LOG_LEVEL=debug
+      - CLIENT_PORT=8080
+      - SERVER_PORT=8081
+      - ELECTION_TIMEOUT=300
+      - HEARTBEAT_TIMEOUT=50
+    # env_file:
+    #   - ./config/.env-server
 
   server3:
     build:
@@ -53,8 +65,14 @@ services:
       - raft_fcul_network
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2
-    env_file:
-      - ./config/.env-server
+      - HOST=raft_fcul_server_3
+      - LOG_LEVEL=debug
+      - CLIENT_PORT=8080
+      - SERVER_PORT=8081
+      - ELECTION_TIMEOUT=300
+      - HEARTBEAT_TIMEOUT=50
+    # env_file:
+    #   - ./config/.env-server
 
   client:
     build:
@@ -67,8 +85,11 @@ services:
       - raft_fcul_network
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3
-    env_file:
-      - ./config/.env-client
+      - LOG_LEVEL=debug
+      - PORT=8080
+      - REQUEST_INTERVAL=5000
+    # env_file:
+    #   - ./config/.env-client
     depends_on:
       - server1
       - server2
