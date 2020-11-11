@@ -1,22 +1,6 @@
 version: "3.3"
 
 services:
-  # mongodb:
-  #   image: mongo:4.0.12
-  #   ports:
-  #     - 27017:27017
-  #   environment:
-  #     - ME_CONFIG_MONGODB_SERVER=localhost
-  #   restart: on-failure
-  #   depends_on:
-  #     - mongodb
-  #   network_mode: host
-  #   healthcheck:
-  #     test: ['CMD', 'mongod', '--version']
-  #     interval: 10s
-  #     timeout: 10s
-  #     retries: 2
-
   server1:
     build:
       context: .
@@ -31,10 +15,9 @@ services:
       - LOG_LEVEL=debug
       - CLIENT_PORT=8080
       - SERVER_PORT=8081
-      - ELECTION_TIMEOUT=300
+      - MINIMUM_ELECTION_TIMEOUT=150
+      - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-    # env_file:
-    #   - ./config/.env-server
 
   server2:
     build:
@@ -50,10 +33,9 @@ services:
       - LOG_LEVEL=debug
       - CLIENT_PORT=8080
       - SERVER_PORT=8081
-      - ELECTION_TIMEOUT=300
+      - MINIMUM_ELECTION_TIMEOUT=150
+      - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-    # env_file:
-    #   - ./config/.env-server
 
   server3:
     build:
@@ -69,10 +51,9 @@ services:
       - LOG_LEVEL=debug
       - CLIENT_PORT=8080
       - SERVER_PORT=8081
-      - ELECTION_TIMEOUT=300
+      - MINIMUM_ELECTION_TIMEOUT=150
+      - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-    # env_file:
-    #   - ./config/.env-server
 
   client:
     build:
@@ -88,8 +69,6 @@ services:
       - LOG_LEVEL=debug
       - PORT=8080
       - REQUEST_INTERVAL=5000
-    # env_file:
-    #   - ./config/.env-client
     depends_on:
       - server1
       - server2

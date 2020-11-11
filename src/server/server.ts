@@ -91,7 +91,7 @@ export class RaftServer extends EventEmitter {
       if (this.stateMachine.state !== RaftState.LEADER) {
         const response: RPCLeaderResponse = {
           method: RPCMethod.LEADER_RESPONSE,
-          message: this.stateMachine.leader?.split(':')[0] || '',
+          message: this.stateMachine.votedFor?.split(':')[0] || '',
         };
         return res.json(response);
       }
@@ -142,9 +142,9 @@ export class RaftServer extends EventEmitter {
         case RPCMethod.REQUEST_VOTE_REQUEST: {
           // vote NO if: local term is greater OR (term is equal AND local index is greater)
           logger.debug('Receive vote request');
-          if (this.stateMachine.term > request.term
-            || (this.stateMachine.term === request.term
-              && this.stateMachine.index > request.index)) {
+          if (this.stateMachine.currentTerm > request.term
+            || (this.stateMachine.currentTerm === request.term
+              && this.stateMachine.lastApplied > request.index)) {
             const response: RPCVoteResponse = { method: RPCMethod.VOTE_RESPONSE, vote: false };
             return res.json(response);
           }
