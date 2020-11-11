@@ -13,6 +13,8 @@ module.exports = {
       ignoreTemplateLiterals: true,
       ignoreRegExpLiterals: true,
     }],
+    'no-underscore-dangle': 'off',
+    'no-plusplus': 'off',
     // Disallow calls to methods of the console object.
     'no-console': 'off',
     // Reduce the scrolling required when reading through code.
