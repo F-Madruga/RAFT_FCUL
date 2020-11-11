@@ -52,15 +52,15 @@ export class StateMachine extends EventEmitter {
 
   private host: string;
 
-  private raftLeader?: string;
+  private votedFor?: string;
 
-  private raftTerm: number = 0;
+  private currentTerm: number = 0;
 
-  private raftIndex: number = 0;
+  private lastApplied: number = 0;
 
   private log: Log = new Log();
 
-  private lastCommitedIndex: number = 0;
+  private commitIndex: number = 0;
 
   constructor(options: StateMachineOptions) {
     super();
@@ -83,11 +83,11 @@ export class StateMachine extends EventEmitter {
 
   public get state() { return this.raftState; }
 
-  public get leader() { return this.raftLeader; }
+  public get leader() { return this.votedFor; }
 
-  public get term() { return this.raftTerm; }
+  public get term() { return this.currentTerm; }
 
-  public get index() { return this.raftIndex; }
+  public get index() { return this.lastApplied; }
 
   private startElectionTimer = () => {
     if (this.electionTimer) clearTimeout(this.electionTimer);
@@ -99,14 +99,14 @@ export class StateMachine extends EventEmitter {
 
   private startElection = () => {
     this.raftState = RaftState.CANDIDATE;
-    this.raftTerm += 1;
+    this.currentTerm += 1;
     this.numberVotes = 0;
     this.startElectionTimer();
     // this.vote();
     const request: RPCRequestVoteRequest = {
       method: RPCMethod.REQUEST_VOTE_REQUEST,
-      term: this.raftTerm,
-      index: this.raftIndex,
+      term: this.currentTerm,
+      index: this.lastApplied,
     };
     return Promise.all(this.servers
       .filter((s) => !s.startsWith(this.host.split(':')[0]))
@@ -127,7 +127,7 @@ export class StateMachine extends EventEmitter {
         const request: RPCLeaderRequest = {
           method: RPCMethod.LEADER_REQUEST,
           message: this.host,
-          term: this.raftTerm,
+          term: this.currentTerm,
         };
         return Promise.all(this.servers
           .filter((s) => !s.startsWith(this.host.split(':')[0]))
@@ -142,8 +142,8 @@ export class StateMachine extends EventEmitter {
 
   public setLeader = (leader: string, term: number) => {
     this.raftState = RaftState.FOLLOWER;
-    this.raftLeader = leader;
-    this.raftTerm = term;
+    this.votedFor = leader;
+    this.currentTerm = term;
     logger.debug(`Changing leader: ${leader}`);
     this.startElectionTimer();
   };
@@ -152,8 +152,8 @@ export class StateMachine extends EventEmitter {
     // TODO: fix this mess
     const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
-      term: this.raftTerm,
-      index: this.raftIndex + 1,
+      term: this.currentTerm,
+      index: this.lastApplied + 1,
       data: message,
       clientId,
       operationId: nanoid(),
@@ -204,7 +204,7 @@ export class StateMachine extends EventEmitter {
     //       if ((received.length + 1) > (this.servers.length + 1) / 2) {
     //         entry.committed = true;
     //         this.log.push(entry);
-    //         this.raftIndex += 1;
+    //         this.lastApplied += 1;
     //         return Promise.all(this.servers
     //           .filter((s) => received.includes(s))
     //           .map((s) => new Promise((resolve, reject) => {
@@ -245,8 +245,8 @@ export class StateMachine extends EventEmitter {
 
   public append = (entry: LogEntry) => {
     this.log.addEntry(entry);
-    this.raftTerm = entry.term;
-    this.raftIndex = entry.index;
+    this.currentTerm = entry.term;
+    this.lastApplied = entry.index;
     logger.debug('Entry appended');
     // AppendEntries counts as a heartbeat
     // Add to log

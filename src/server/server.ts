@@ -127,7 +127,7 @@ export class RaftServer extends EventEmitter {
           logger.debug('Receive append entries request');
           const response: RPCAppendEntriesResponse = { method: RPCMethod.APPEND_ENTRIES_RESPONSE };
           return Promise.try(() => this.stateMachine.append(request.entry))
-            tap(() => options.handler(request.entry.data))
+            // .tap(() => options.handler(request.entry.data))
             .tap(() => logger.debug('Entry appended'))
             .tap(() => res.json(response));
         }
