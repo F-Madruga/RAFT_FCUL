@@ -9,13 +9,15 @@ export type LogEntry = {
 };
 
 export class Log {
-  private entries: LogEntry[] = [];
+  private _entries: LogEntry[] = [];
 
   public addEntry = (entry: LogEntry) => {
-    this.entries.push(entry);
+    this._entries.push(entry);
   };
 
-  public getLogEntry = (index: number) => this.entries[index];
+  public get length() { return this._entries.length; }
 
-  public get isEmpty() { return this.entries.length <= 0; }
+  public getLogEntry = (index: number) => this._entries[index];
+
+  public get isEmpty() { return this._entries.length <= 0; }
 }

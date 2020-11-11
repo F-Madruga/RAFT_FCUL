@@ -36,9 +36,6 @@ export class RaftClient {
         case RPCMethod.COMMAND_RESPONSE: {
           return response.message;
         }
-        case RPCMethod.EMPTY_RESPONSE: {
-          return '';
-        }
         case RPCMethod.ERROR_RESPONSE: {
           throw new RPCError(response.message);
         }

@@ -1,12 +1,13 @@
 import Promise from 'bluebird';
 import axios from 'axios';
-import { RPCAppendEntriesRequest, RPCCommitEntriesRequest, RPCMethod } from '../utils/rpc.util';
+import {
+  RPCAppendEntriesRequest, RPCMethod, RPCRequestVoteRequest,
+} from '../utils/rpc.util';
 import { LogEntry } from './log';
 
 export type ReplicaOptions = {
   host: string,
   port: number,
-  leaderLastIndex: number,
 };
 
 export class Replica {
@@ -21,7 +22,7 @@ export class Replica {
   constructor(options: ReplicaOptions) {
     this._host = options.host;
     this._port = options.port;
-    this._nextIndex = options.leaderLastIndex + 1;
+    this._nextIndex = 0;
     this._matchIndex = 0;
   }
 
@@ -45,19 +46,75 @@ export class Replica {
     this._nextIndex = leaderLastIndex + 1;
   }
 
-  public appendEntry = (entry: LogEntry) => {
+  public heartbeat = (term: number, leaderId: string,
+    prevLogIndex: number, prevLogTerm: number,
+    leaderCommit: number) => {
     const request: RPCAppendEntriesRequest = {
       method: RPCMethod.APPEND_ENTRIES_REQUEST,
-      entry,
+      term,
+      leaderId,
+      prevLogIndex,
+      prevLogTerm,
+      entries: [],
+      leaderCommit,
     };
-    return Promise.resolve(axios.post('/', request, { baseURL: `http://${this._host}:${this._port}` }))
-      .then(() => this._matchIndex++);
+    return Promise.resolve(axios.post('/', request, { baseURL: `http://${this._host}:${this._port}` }));
   };
 
-  public commitEntry = (entry: LogEntry) => {
-    const request: RPCCommitEntriesRequest = {
-      method: RPCMethod.COMMIT_ENTRIES_REQUEST,
-      entry,
+  public requestVote = (term: number, candidateId: string,
+    lastLogIndex: number, lastLogTerm: number) => {
+    const request: RPCRequestVoteRequest = {
+      method: RPCMethod.REQUEST_VOTE_REQUEST,
+      term,
+      candidateId,
+      lastLogIndex,
+      lastLogTerm,
+    };
+    return Promise.resolve(axios.post('/', request, { baseURL: `http://${this._host}:${this._port}` }));
+  };
+
+  public requestLeader = (term: number, leaderId: string,
+    prevLogIndex: number, prevLogTerm: number,
+    leaderCommit: number) => {
+    const request: RPCAppendEntriesRequest = {
+      method: RPCMethod.APPEND_ENTRIES_REQUEST,
+      term,
+      leaderId,
+      prevLogIndex,
+      prevLogTerm,
+      entries: [],
+      leaderCommit,
+    };
+    return Promise.resolve(axios.post('/', request, { baseURL: `http://${this._host}:${this._port}` }));
+  };
+
+  public appendEntry = (term: number, leaderId: string,
+    prevLogIndex: number, prevLogTerm: number, entries: LogEntry[],
+    leaderCommit: number) => {
+    const request: RPCAppendEntriesRequest = {
+      method: RPCMethod.APPEND_ENTRIES_REQUEST,
+      term,
+      leaderId,
+      prevLogIndex,
+      prevLogTerm,
+      entries,
+      leaderCommit,
+    };
+    return Promise.resolve(axios.post('/', request, { baseURL: `http://${this._host}:${this._port}` }))
+      .then(() => { this._matchIndex += entries.length; });
+  };
+
+  public commitEntry = (term: number, leaderId: string,
+    prevLogIndex: number, prevLogTerm: number,
+    leaderCommit: number) => {
+    const request: RPCAppendEntriesRequest = {
+      method: RPCMethod.APPEND_ENTRIES_REQUEST,
+      term,
+      leaderId,
+      prevLogIndex,
+      prevLogTerm,
+      entries: [],
+      leaderCommit,
     };
     return Promise.resolve(axios.post('/', request, { baseURL: `http://${this._host}:${this._port}` }));
   };

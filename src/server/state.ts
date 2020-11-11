@@ -3,15 +3,12 @@ import axios from 'axios';
 import { nanoid } from 'nanoid';
 import { EventEmitter } from 'events';
 import logger from '../utils/log.util';
+import { Replica } from './replica';
 
 import {
   RPCMethod,
   RPCAppendEntriesRequest,
-  RPCCommitEntriesRequest,
-  RPCRequestVoteRequest,
-  RPCLeaderRequest,
-  RPCVoteResponse,
-  RPCHeartbeatRequest,
+  RPCRequestVoteResponse,
 } from '../utils/rpc.util';
 import { LogEntry, Log } from './log';
 
@@ -23,8 +20,7 @@ export enum RaftState {
 
 export type StateMachineOptions = {
   host: string,
-  servers: string[],
-  port?: number,
+  replicas: Replica[],
   initialState?: RaftState,
   minimumElectionTimeout?: number,
   maximumElectionTimeout?: number,
@@ -32,105 +28,124 @@ export type StateMachineOptions = {
 };
 
 export class StateMachine extends EventEmitter {
-  private raftState: RaftState;
+  private _state: RaftState;
 
-  // eslint-disable-next-line no-undef
-  private electionTimer?: NodeJS.Timeout;
+  private _electionTimer?: NodeJS.Timeout;
 
-  // eslint-disable-next-line no-undef
-  private heartbeatTimer?: NodeJS.Timeout;
+  private _heartbeatTimer?: NodeJS.Timeout;
 
-  private minimumElectionTimeout: number;
+  private _minimumElectionTimeout: number;
 
-  private maximumElectionTimeout: number;
+  private _maximumElectionTimeout: number;
 
-  private heartbeatTimeout: number;
+  private _heartbeatTimeout: number;
 
-  private numberVotes: number = 0;
+  private _numberVotes: number = 0;
 
-  private servers: string[];
+  private _replicas: Replica[];
 
-  private host: string;
+  private _host: string;
 
-  private votedFor?: string;
+  private _votedFor?: string;
 
-  private currentTerm: number = 0;
+  private _currentTerm: number = 0;
 
-  private lastApplied: number = 0;
+  private _lastApplied: number = 0;
 
-  private log: Log = new Log();
+  private _log: Log = new Log();
 
-  private commitIndex: number = 0;
+  private _commitIndex: number = 0;
 
   constructor(options: StateMachineOptions) {
     super();
-    this.raftState = options.initialState || RaftState.FOLLOWER;
-    this.minimumElectionTimeout = options.minimumElectionTimeout || 150;
-    this.maximumElectionTimeout = options.maximumElectionTimeout || 300;
-    this.heartbeatTimeout = options.heartbeatTimeout || 50;
-    const [host, port] = options.host.split(':');
-    this.host = [host, port || options.port || 8081].join(':');
-    this.servers = [...new Set(options.servers
-      .map((s) => s.split(':'))
-      .map(([h, p]) => [h, p || options.port || 8081].join(':')))];
+    this._state = options.initialState || RaftState.FOLLOWER;
+    this._minimumElectionTimeout = options.minimumElectionTimeout || 150;
+    this._maximumElectionTimeout = options.maximumElectionTimeout || 300;
+    this._heartbeatTimeout = options.heartbeatTimeout || 50;
+    this._host = options.host;
+    this._replicas = options.replicas;
     this.startElectionTimer();
   }
 
   private set setState(state: RaftState) {
-    this.raftState = state;
-    this.emit('state', this.raftState);
+    this._state = state;
+    this.emit('state', this._state);
   }
 
-  public get state() { return this.raftState; }
+  public get state() { return this._state; }
 
-  public get leader() { return this.votedFor; }
+  public get votedFor() { return this._votedFor; }
 
-  public get term() { return this.currentTerm; }
+  public get currentTerm() { return this._currentTerm; }
 
-  public get index() { return this.lastApplied; }
+  public get lastApplied() { return this._lastApplied; }
 
   private startElectionTimer = () => {
-    if (this.electionTimer) clearTimeout(this.electionTimer);
+    if (this._electionTimer) clearTimeout(this._electionTimer);
     const task = this.startElection;
-    this.electionTimer = setTimeout(() => task(), Math.floor(Math.random()
-      * (this.maximumElectionTimeout - this.minimumElectionTimeout + 1))
-      + this.minimumElectionTimeout);
+    this._electionTimer = setTimeout(() => task(), Math.floor(Math.random()
+      * (this._maximumElectionTimeout - this._minimumElectionTimeout + 1))
+      + this._minimumElectionTimeout);
   };
 
   private startElection = () => {
-    this.raftState = RaftState.CANDIDATE;
-    this.currentTerm += 1;
-    this.numberVotes = 0;
+    this._state = RaftState.CANDIDATE;
+    this._currentTerm += 1;
+    this._numberVotes = 0;
     this.startElectionTimer();
     // this.vote();
-    const request: RPCRequestVoteRequest = {
-      method: RPCMethod.REQUEST_VOTE_REQUEST,
-      term: this.currentTerm,
-      index: this.lastApplied,
-    };
-    return Promise.all(this.servers
-      .filter((s) => !s.startsWith(this.host.split(':')[0]))
-      .map((server) => Promise
-        .resolve(axios.post(`http://${server}`, request))
-        .then((response) => response.data)
-        .tap((response: RPCVoteResponse) => response.vote === true && this.vote())
-        .catch(() => undefined)));
+    // const request: RPCRequestVoteRequest = {
+    //   method: RPCMethod.REQUEST_VOTE_REQUEST,
+    //   term: this._currentTerm,
+    //   index: this._lastApplied,
+    // };
+    // return Promise.all(this._replicas
+    //   .filter((s) => !s.startsWith(this._host.split(':')[0]))
+    //   .map((server) => Promise
+    //     .resolve(axios.post(`http://${server}`, request))
+    //     .then((response) => response.data)
+    //     .tap((response: RPCVoteResponse) => response.vote === true && this.vote())
+    //     .catch(() => undefined)));
+    const lastEntry: LogEntry = this._log.getLogEntry(this._log.length - 1);
+    const result = Promise
+      .some(
+        this._replicas.map((replica) => replica
+          .requestVote(this._currentTerm, this._host, lastEntry.index, lastEntry.term)
+          .then<RPCRequestVoteResponse>((response) => response.data)
+          .tap((response) => {
+            if (response.term > this._currentTerm) {
+              // Update term
+              result.cancel();
+            }
+            if (!response.voteGranted) {
+              return Promise.reject(new Error());
+            }
+            return undefined;
+          })),
+        this._replicas.length / 2,
+      )
+      .then(() => this._replicas.map((replica) => replica
+        .requestLeader(this._currentTerm, this._host,
+          lastEntry.index, lastEntry.term, this._commitIndex)));
+      // Update next index
+      // Update raft state
+    return result;
   };
 
   public vote = () => {
-    if (this.raftState === RaftState.CANDIDATE) {
-      this.numberVotes += 1;
-      if (this.numberVotes > this.servers.length / 2) {
-        this.numberVotes = 0;
-        if (this.electionTimer) clearTimeout(this.electionTimer);
+    if (this._state === RaftState.CANDIDATE) {
+      this._numberVotes += 1;
+      if (this._numberVotes > this._replicas.length / 2) {
+        this._numberVotes = 0;
+        if (this._electionTimer) clearTimeout(this._electionTimer);
         this.setState = RaftState.LEADER;
         const request: RPCLeaderRequest = {
           method: RPCMethod.LEADER_REQUEST,
-          message: this.host,
-          term: this.currentTerm,
+          message: this._host,
+          term: this._currentTerm,
         };
-        return Promise.all(this.servers
-          .filter((s) => !s.startsWith(this.host.split(':')[0]))
+        return Promise.all(this._replicas
+          .filter((s) => !s.startsWith(this._host.split(':')[0]))
           .map((server) => Promise
             .resolve(axios.post(`http://${server}`, request))
             .catch(() => undefined)))
@@ -141,9 +156,9 @@ export class StateMachine extends EventEmitter {
   };
 
   public setLeader = (leader: string, term: number) => {
-    this.raftState = RaftState.FOLLOWER;
-    this.votedFor = leader;
-    this.currentTerm = term;
+    this._state = RaftState.FOLLOWER;
+    this._votedFor = leader;
+    this._currentTerm = term;
     logger.debug(`Changing leader: ${leader}`);
     this.startElectionTimer();
   };
@@ -152,8 +167,8 @@ export class StateMachine extends EventEmitter {
     // TODO: fix this mess
     const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
-      term: this.currentTerm,
-      index: this.lastApplied + 1,
+      term: this._currentTerm,
+      index: this._lastApplied + 1,
       data: message,
       clientId,
       operationId: nanoid(),
@@ -170,7 +185,7 @@ export class StateMachine extends EventEmitter {
       entry: logEntry,
     };
 
-    Promise.all(this.servers.filter((s) => !s.startsWith(this.host.split(':')[0])))
+    Promise.all(this._replicas.filter((s) => !s.startsWith(this._host.split(':')[0])))
       .tap(() => logger.debug('Appending entry'))
       .tap(() => this.append(logEntry))
       .tap(() => logger.debug('Sending append entry request to the other servers'))
@@ -225,9 +240,9 @@ export class StateMachine extends EventEmitter {
   };
 
   private startHeartbeatTimer = () => {
-    if (this.heartbeatTimer) clearTimeout(this.heartbeatTimer);
+    if (this._heartbeatTimer) clearTimeout(this._heartbeatTimer);
     const task = this.sendHeartBeat;
-    this.heartbeatTimer = setTimeout(() => task(), this.heartbeatTimeout);
+    this._heartbeatTimer = setTimeout(() => task(), this._heartbeatTimeout);
   };
 
   private sendHeartBeat = () => {
@@ -235,8 +250,8 @@ export class StateMachine extends EventEmitter {
       method: RPCMethod.HEARTBEAT_REQUEST,
     };
     this.startHeartbeatTimer();
-    return Promise.all(this.servers
-      .filter((s) => !s.startsWith(this.host.split(':')[0]))
+    return Promise.all(this._replicas
+      .filter((s) => !s.startsWith(this._host.split(':')[0]))
       .map((server) => Promise
         .resolve(axios.post(`http://${server}`, request))
         .then((response) => response.data)
@@ -244,9 +259,9 @@ export class StateMachine extends EventEmitter {
   };
 
   public append = (entry: LogEntry) => {
-    this.log.addEntry(entry);
-    this.currentTerm = entry.term;
-    this.lastApplied = entry.index;
+    this._log.addEntry(entry);
+    this._currentTerm = entry.term;
+    this._lastApplied = entry.index;
     logger.debug('Entry appended');
     // AppendEntries counts as a heartbeat
     // Add to log
