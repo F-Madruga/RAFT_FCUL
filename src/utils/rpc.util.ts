@@ -7,7 +7,7 @@ export enum RPCMethod {
   LEADER_RESPONSE = 'LEADER_RESPONSE',
   COMMAND_RESPONSE = 'COMMAND_RESPONSE',
   APPEND_ENTRIES_RESPONSE = 'APPEND_ENTRIES_RESPONSE',
-  REQUEST_VOTE_RESPONSE = 'VOTE_RESPONSE',
+  REQUEST_VOTE_RESPONSE = 'REQUEST_VOTE_RESPONSE',
   ERROR_RESPONSE = 'ERROR_RESPONSE',
 }
 
@@ -41,7 +41,7 @@ export type RPCAppendEntriesRequest = {
   prevLogIndex: number,
   prevLogTerm: number,
   entries: LogEntry[],
-  leaderCommit: number
+  leaderCommit: number,
 };
 
 export type RPCRequestVoteRequest = {
@@ -57,7 +57,7 @@ export type RPCServerRequest = RPCAppendEntriesRequest | RPCRequestVoteRequest;
 export type RPCAppendEntriesResponse = {
   method: RPCMethod.APPEND_ENTRIES_RESPONSE,
   term: number,
-  success: boolean
+  success: boolean,
 };
 
 export type RPCRequestVoteResponse = {
@@ -66,7 +66,8 @@ export type RPCRequestVoteResponse = {
   voteGranted: boolean,
 };
 
-export type RPCServerResponse = RPCAppendEntriesResponse | RPCRequestVoteResponse | RPCErrorResponse;
+export type RPCServerResponse = RPCAppendEntriesResponse
+| RPCRequestVoteResponse | RPCErrorResponse;
 
 export type RPCRequest = RPCClientRequest | RPCServerRequest;
 

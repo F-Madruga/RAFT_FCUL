@@ -1,13 +1,18 @@
 import Promise from 'bluebird';
 import axios from 'axios';
 import {
-  RPCAppendEntriesRequest, RPCMethod, RPCRequestVoteRequest,
+  RPCMethod,
+  RPCAppendEntriesRequest,
+  RPCAppendEntriesResponse,
+  RPCRequestVoteRequest,
+  RPCRequestVoteResponse,
 } from '../utils/rpc.util';
 import { LogEntry } from './log';
 
 export type ReplicaOptions = {
   host: string,
   port: number,
+  lastLogIndex: number,
 };
 
 export class Replica {
@@ -22,7 +27,7 @@ export class Replica {
   constructor(options: ReplicaOptions) {
     this._host = options.host;
     this._port = options.port;
-    this._nextIndex = 0;
+    this._nextIndex = options.lastLogIndex + 1;
     this._matchIndex = 0;
   }
 
@@ -46,20 +51,8 @@ export class Replica {
     this._nextIndex = leaderLastIndex + 1;
   }
 
-  public heartbeat = (term: number, leaderId: string,
-    prevLogIndex: number, prevLogTerm: number,
-    leaderCommit: number) => {
-    const request: RPCAppendEntriesRequest = {
-      method: RPCMethod.APPEND_ENTRIES_REQUEST,
-      term,
-      leaderId,
-      prevLogIndex,
-      prevLogTerm,
-      entries: [],
-      leaderCommit,
-    };
-    return Promise.resolve(axios.post('/', request, { baseURL: `http://${this._host}:${this._port}` }));
-  };
+  private RPCRequest = <T>(url: string, data: any) => Promise.resolve(axios.post(url, data))
+    .then<T>((response) => response.data);
 
   public requestVote = (term: number, candidateId: string,
     lastLogIndex: number, lastLogTerm: number) => {
@@ -70,52 +63,30 @@ export class Replica {
       lastLogIndex,
       lastLogTerm,
     };
-    return Promise.resolve(axios.post('/', request, { baseURL: `http://${this._host}:${this._port}` }));
+    return this.RPCRequest<RPCRequestVoteResponse>(`http://${this._host}:${this._port}`, request);
   };
 
-  public requestLeader = (term: number, leaderId: string,
-    prevLogIndex: number, prevLogTerm: number,
-    leaderCommit: number) => {
+  public appendEntries = (term: number, leaderId: string, prevLogTerm: number, leaderCommit: number,
+    log: LogEntry[], nextIndex: number = this.nextIndex): Promise<RPCAppendEntriesResponse> => {
+    this._nextIndex = nextIndex;
     const request: RPCAppendEntriesRequest = {
       method: RPCMethod.APPEND_ENTRIES_REQUEST,
       term,
       leaderId,
-      prevLogIndex,
+      entries: log.slice(this._nextIndex, log.length),
+      prevLogIndex: this._nextIndex,
       prevLogTerm,
-      entries: [],
       leaderCommit,
     };
-    return Promise.resolve(axios.post('/', request, { baseURL: `http://${this._host}:${this._port}` }));
-  };
-
-  public appendEntry = (term: number, leaderId: string,
-    prevLogIndex: number, prevLogTerm: number, entries: LogEntry[],
-    leaderCommit: number) => {
-    const request: RPCAppendEntriesRequest = {
-      method: RPCMethod.APPEND_ENTRIES_REQUEST,
-      term,
-      leaderId,
-      prevLogIndex,
-      prevLogTerm,
-      entries,
-      leaderCommit,
-    };
-    return Promise.resolve(axios.post('/', request, { baseURL: `http://${this._host}:${this._port}` }))
-      .then(() => { this._matchIndex += entries.length; });
-  };
-
-  public commitEntry = (term: number, leaderId: string,
-    prevLogIndex: number, prevLogTerm: number,
-    leaderCommit: number) => {
-    const request: RPCAppendEntriesRequest = {
-      method: RPCMethod.APPEND_ENTRIES_REQUEST,
-      term,
-      leaderId,
-      prevLogIndex,
-      prevLogTerm,
-      entries: [],
-      leaderCommit,
-    };
-    return Promise.resolve(axios.post('/', request, { baseURL: `http://${this._host}:${this._port}` }));
+    return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this._host}:${this._port}`, request)
+      .then((response) => {
+        if (response.success === false && this._nextIndex > 0) {
+          this._nextIndex -= 1;
+          return this.appendEntries(term, leaderId, prevLogTerm, leaderCommit, log);
+        }
+        this._matchIndex += request.entries.length;
+        this._nextIndex = this._matchIndex + 1;
+        return response;
+      });
   };
 }

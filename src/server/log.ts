@@ -5,7 +5,7 @@ export type LogEntry = {
   data: string,
   clientId: string,
   operationId: string,
-  committed: boolean,
+  leaderId: string,
 };
 
 export class Log {
@@ -20,4 +20,6 @@ export class Log {
   public getLogEntry = (index: number) => this._entries[index];
 
   public get isEmpty() { return this._entries.length <= 0; }
+
+  public get currentLeader() { return this._entries[this._entries.length - 1].leaderId; }
 }
