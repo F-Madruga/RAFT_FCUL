@@ -4,6 +4,7 @@ import bodyParser from 'body-parser';
 import { nanoid } from 'nanoid';
 import http from 'http';
 import { EventEmitter } from 'events';
+
 import logger from '../utils/log.util';
 import {
   RPCMethod,
@@ -11,11 +12,9 @@ import {
   RPCLeaderResponse,
   RPCServerRequest,
   RPCErrorResponse,
-  RPCVoteResponse,
-  RPCAppendEntriesResponse,
-  RPCHeartbeatResponse,
   RPCCommandResponse,
-  RPCCommitEntriesResponse,
+  RPCAppendEntriesResponse,
+  RPCRequestVoteResponse,
 } from '../utils/rpc.util';
 import { RaftState, StateMachine } from './state';
 
@@ -24,6 +23,9 @@ export type RaftServerOptions = {
   servers: string[],
   clientPort: number,
   serverPort: number,
+  minimumElectionTimeout?: number,
+  maximumElectionTimeout?: number,
+  heartbeatTimeout?: number,
   handler: (message: string) => string | Promise<string>,
 };
 
@@ -44,48 +46,18 @@ export class RaftServer extends EventEmitter {
     super();
     this.clientPort = options.clientPort;
     this.serverPort = options.serverPort;
-    this.servers = [...new Set(options.servers
-      .map((s) => s.split(':'))
-      .map(([h, p]) => [h, p || this.serverPort].join(':')))];
+    // this.servers = [...new Set(options.servers
+    //   .map((s) => s.split(':'))
+    //   .map(([h, p]) => [h, p || this.serverPort].join(':')))];
+    this.servers = options.servers;
     this.stateMachine = new StateMachine({
       servers: this.servers,
       host: options.host,
+      port: options.serverPort,
+      minimumElectionTimeout: options.minimumElectionTimeout,
+      maximumElectionTimeout: options.maximumElectionTimeout,
+      heartbeatTimeout: options.heartbeatTimeout,
     });
-    // this.commandServer = new WebSocket.Server({ port: this.clientPort },
-    //   () => logger.info(`Listening for client connections on port ${this.clientPort}`))
-    //   .on('connection', (ws) => {
-    //     // if not leader, send leader info
-    //     if (this.stateMachine.state !== RaftState.LEADER) {
-    //       const response: RPCLeaderResponse = {
-    //         method: RPCMethod.LEADER_RESPONSE,
-    //         message: this.stateMachine.leader || '',
-    //       };
-    //       return ws.send(JSON.stringify(response));
-    //     }
-    //     const clientId = nanoid();
-    //     return ws.on('message', (message) => {
-    //       const request: RPCClientRequest = JSON.parse(message.toString());
-    //       switch (request.method) {
-    //         case RPCMethod.COMMAND_REQUEST: {
-    //           return Promise.try(() => this.stateMachine.replicate(request.message, clientId))
-    //             .tap(() => logger.debug(`Processing client request: ${request.message}`))
-    //             .then(() => options.handler(request.message))
-    //             .then((response) => ({
-    //               method: RPCMethod.COMMAND_RESPONSE,
-    //               message: response,
-    //             } as RPCCommandResponse))
-    //             .then((response) => ws.send(JSON.stringify(response)));
-    //         }
-    //         default:
-    //           break;
-    //       }
-    //       const response: RPCErrorResponse = {
-    //         method: RPCMethod.ERROR_RESPONSE,
-    //         message: `Unrecognized method: ${request.method}`,
-    //       };
-    //       return ws.send(JSON.stringify(response));
-    //     });
-    //   });
     this.commandServer = express().use(bodyParser.json()).use(Router().post('/', (req, res) => {
       // if not leader, send leader info
       if (this.stateMachine.state !== RaftState.LEADER) {
@@ -106,6 +78,7 @@ export class RaftServer extends EventEmitter {
             .then((response) => ({
               method: RPCMethod.COMMAND_RESPONSE,
               message: response,
+              clientId,
             } as RPCCommandResponse))
             .then((response) => res.json(response));
         }
@@ -124,46 +97,49 @@ export class RaftServer extends EventEmitter {
       const request: RPCServerRequest = req.body;
       switch (request.method) {
         case RPCMethod.APPEND_ENTRIES_REQUEST: {
-          logger.debug('Receive append entries request');
-          const response: RPCAppendEntriesResponse = { method: RPCMethod.APPEND_ENTRIES_RESPONSE };
-          return Promise.try(() => this.stateMachine.append(request.entry))
-            // .tap(() => options.handler(request.entry.data))
-            .tap(() => logger.debug('Entry appended'))
-            .tap(() => res.json(response));
-        }
-        case RPCMethod.COMMIT_ENTRIES_REQUEST: {
-          logger.debug('Receive commit entries request');
-          const response: RPCCommitEntriesResponse = {
-            method: RPCMethod.COMMIT_ENTRIES_RESPONSE,
-          };
-          // this.stateMachine.commitEntry();
-          return res.json(response);
+          if (request.prevLogIndex
+            > (this.stateMachine.log[this.stateMachine.log.length - 1] || {}).index || 0) {
+            return res.json({
+              method: RPCMethod.APPEND_ENTRIES_RESPONSE,
+              term: this.stateMachine.currentTerm,
+              success: false,
+            } as RPCAppendEntriesResponse);
+          }
+          return Promise.all(request.entries)
+            .map((entry) => {
+              this.stateMachine.append(entry);
+              // if (entry.index <= request.leaderCommit) {
+              //   // commit
+              // }
+              // check if entries already exist in log
+              return options.handler(entry.data);
+            })
+            // .tap(() => logger.debug('Entry appended'))
+            .tap(() => res.json({
+              method: RPCMethod.APPEND_ENTRIES_RESPONSE,
+              term: this.stateMachine.currentTerm,
+              success: true,
+            } as RPCAppendEntriesResponse));
         }
         case RPCMethod.REQUEST_VOTE_REQUEST: {
           // vote NO if: local term is greater OR (term is equal AND local index is greater)
           logger.debug('Receive vote request');
           if (this.stateMachine.currentTerm > request.term
             || (this.stateMachine.currentTerm === request.term
-              && this.stateMachine.lastApplied > request.index)) {
-            const response: RPCVoteResponse = { method: RPCMethod.VOTE_RESPONSE, vote: false };
+              && this.stateMachine.lastApplied > request.lastLogIndex)) {
+            const response: RPCRequestVoteResponse = {
+              method: RPCMethod.REQUEST_VOTE_RESPONSE,
+              term: this.stateMachine.currentTerm,
+              voteGranted: false,
+            };
             return res.json(response);
           }
           // vote YES otherwise
-          const response: RPCVoteResponse = { method: RPCMethod.VOTE_RESPONSE, vote: true };
-          return res.json(response);
-        }
-        case RPCMethod.LEADER_REQUEST: {
-          logger.debug(`Receive leader from: ${request.message}`);
-          this.stateMachine.setLeader(request.message, request.term);
-          const response: RPCLeaderResponse = {
-            method: RPCMethod.LEADER_RESPONSE,
-            message: request.message,
+          const response: RPCRequestVoteResponse = {
+            method: RPCMethod.REQUEST_VOTE_RESPONSE,
+            term: this.stateMachine.currentTerm,
+            voteGranted: true,
           };
-          return res.json(response);
-        }
-        case RPCMethod.HEARTBEAT_REQUEST: {
-          this.stateMachine.heartbeat();
-          const response: RPCHeartbeatResponse = { method: RPCMethod.HEARTBEAT_RESPONSE };
           return res.json(response);
         }
         default:
@@ -171,7 +147,7 @@ export class RaftServer extends EventEmitter {
       }
       const response: RPCErrorResponse = {
         method: RPCMethod.ERROR_RESPONSE,
-        message: `Unrecognized method: ${request.method}`,
+        message: `Unrecognized method: ${(request as any).method}`,
       };
       return res.json(response);
     }))

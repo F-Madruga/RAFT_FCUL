@@ -10,7 +10,7 @@ services:
     networks:
       - raft_fcul_network
     environment:
-      - SERVERS=raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
+      - SERVERS=raft_fcul_server_2 # ,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
       - HOST=raft_fcul_server_1
       - LOG_LEVEL=debug
       - CLIENT_PORT=8080
@@ -28,7 +28,7 @@ services:
     networks:
       - raft_fcul_network
     environment:
-      - SERVERS=raft_fcul_server_1,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
+      - SERVERS=raft_fcul_server_1 # ,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
       - HOST=raft_fcul_server_2
       - LOG_LEVEL=debug
       - CLIENT_PORT=8080
@@ -37,59 +37,59 @@ services:
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
 
-  server3:
-    build:
-      context: .
-      dockerfile: ./docker/Dockerfile.server
-    image: raft_fcul_server
-    container_name: raft_fcul_server_3
-    networks:
-      - raft_fcul_network
-    environment:
-      - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_4,raft_fcul_server_5
-      - HOST=raft_fcul_server_3
-      - LOG_LEVEL=debug
-      - CLIENT_PORT=8080
-      - SERVER_PORT=8081
-      - MINIMUM_ELECTION_TIMEOUT=150
-      - MAXIMUM_ELECTION_TIMEOUT=300
-      - HEARTBEAT_TIMEOUT=50
+  # server3:
+  #   build:
+  #     context: .
+  #     dockerfile: ./docker/Dockerfile.server
+  #   image: raft_fcul_server
+  #   container_name: raft_fcul_server_3
+  #   networks:
+  #     - raft_fcul_network
+  #   environment:
+  #     - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_4,raft_fcul_server_5
+  #     - HOST=raft_fcul_server_3
+  #     - LOG_LEVEL=debug
+  #     - CLIENT_PORT=8080
+  #     - SERVER_PORT=8081
+  #     - MINIMUM_ELECTION_TIMEOUT=150
+  #     - MAXIMUM_ELECTION_TIMEOUT=300
+  #     - HEARTBEAT_TIMEOUT=50
 
-  server4:
-    build:
-      context: .
-      dockerfile: ./docker/Dockerfile.server
-    image: raft_fcul_server
-    container_name: raft_fcul_server_4
-    networks:
-      - raft_fcul_network
-    environment:
-      - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_5
-      - HOST=raft_fcul_server_4
-      - LOG_LEVEL=debug
-      - CLIENT_PORT=8080
-      - SERVER_PORT=8081
-      - MINIMUM_ELECTION_TIMEOUT=150
-      - MAXIMUM_ELECTION_TIMEOUT=300
-      - HEARTBEAT_TIMEOUT=50
+  # server4:
+  #   build:
+  #     context: .
+  #     dockerfile: ./docker/Dockerfile.server
+  #   image: raft_fcul_server
+  #   container_name: raft_fcul_server_4
+  #   networks:
+  #     - raft_fcul_network
+  #   environment:
+  #     - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_5
+  #     - HOST=raft_fcul_server_4
+  #     - LOG_LEVEL=debug
+  #     - CLIENT_PORT=8080
+  #     - SERVER_PORT=8081
+  #     - MINIMUM_ELECTION_TIMEOUT=150
+  #     - MAXIMUM_ELECTION_TIMEOUT=300
+  #     - HEARTBEAT_TIMEOUT=50
 
-  server5:
-    build:
-      context: .
-      dockerfile: ./docker/Dockerfile.server
-    image: raft_fcul_server
-    container_name: raft_fcul_server_5
-    networks:
-      - raft_fcul_network
-    environment:
-      - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4
-      - HOST=raft_fcul_server_5
-      - LOG_LEVEL=debug
-      - CLIENT_PORT=8080
-      - SERVER_PORT=8081
-      - MINIMUM_ELECTION_TIMEOUT=150
-      - MAXIMUM_ELECTION_TIMEOUT=300
-      - HEARTBEAT_TIMEOUT=50
+  # server5:
+  #   build:
+  #     context: .
+  #     dockerfile: ./docker/Dockerfile.server
+  #   image: raft_fcul_server
+  #   container_name: raft_fcul_server_5
+  #   networks:
+  #     - raft_fcul_network
+  #   environment:
+  #     - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4
+  #     - HOST=raft_fcul_server_5
+  #     - LOG_LEVEL=debug
+  #     - CLIENT_PORT=8080
+  #     - SERVER_PORT=8081
+  #     - MINIMUM_ELECTION_TIMEOUT=150
+  #     - MAXIMUM_ELECTION_TIMEOUT=300
+  #     - HEARTBEAT_TIMEOUT=50
 
   client:
     build:
@@ -101,14 +101,16 @@ services:
     networks:
       - raft_fcul_network
     environment:
-      - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
+      - SERVERS=raft_fcul_server_1,raft_fcul_server_2 # ,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
       - LOG_LEVEL=debug
       - PORT=8080
-      - REQUEST_INTERVAL=5000
+      - REQUEST_INTERVAL=20000
     depends_on:
       - server1
       - server2
-      - server3
+      # - server3
+      # - server4
+      # - server5
 
 networks:
   raft_fcul_network:

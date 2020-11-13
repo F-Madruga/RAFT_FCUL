@@ -78,6 +78,11 @@ export class Replica {
       prevLogTerm,
       leaderCommit,
     };
+    console.log('Replica:', this._host);
+    console.log('Leader log:', log);
+    console.log('New entries:', request.entries);
+    console.log('Next index:', this._nextIndex);
+    console.log('Match index:', this._matchIndex);
     return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this._host}:${this._port}`, request)
       .then((response) => {
         if (response.success === false && this._nextIndex > 0) {

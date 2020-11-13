@@ -26,6 +26,7 @@ export type RPCLeaderResponse = {
 export type RPCCommandResponse = {
   method: RPCMethod.COMMAND_RESPONSE,
   message: string,
+  clientId?: string,
 };
 
 export type RPCErrorResponse = {

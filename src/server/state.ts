@@ -15,7 +15,7 @@ export enum RaftState {
 export type StateMachineOptions = {
   host: string,
   port: number,
-  replicas: Replica[],
+  servers: string[],
   initialState?: RaftState,
   minimumElectionTimeout?: number,
   maximumElectionTimeout?: number,
@@ -49,7 +49,9 @@ export class StateMachine extends EventEmitter {
 
   private _lastApplied: number = 0;
 
-  private _log: LogEntry[] = [];
+  private _log: LogEntry[];
+
+  private _toCommit: { resolve: null | ((result?: any) => void) }[] = [];
 
   private _commitIndex: number = 0;
 
@@ -61,7 +63,12 @@ export class StateMachine extends EventEmitter {
     this._heartbeatTimeout = options.heartbeatTimeout || 50;
     this._host = options.host;
     this._port = options.port;
-    this._replicas = options.replicas;
+    this._log = []; // check disk for log
+    this._replicas = options.servers.map((server) => new Replica({
+      host: server,
+      port: this._port,
+      lastLogIndex: (this._log[this._log.length - 1] || {}).index || 0,
+    }));
     this.startElectionTimer();
   }
 
@@ -71,6 +78,8 @@ export class StateMachine extends EventEmitter {
   }
 
   public get state() { return this._state; }
+
+  public get log() { return this._log; }
 
   public get votedFor() { return this._votedFor; }
 
@@ -91,24 +100,12 @@ export class StateMachine extends EventEmitter {
     this._currentTerm += 1;
     this._votedFor = this._host;
     this.startElectionTimer();
-    // this.vote();
-    // const request: RPCRequestVoteRequest = {
-    //   method: RPCMethod.REQUEST_VOTE_REQUEST,
-    //   term: this._currentTerm,
-    //   index: this._lastApplied,
-    // };
-    // return Promise.all(this._replicas
-    //   .filter((s) => !s.startsWith(this._host.split(':')[0]))
-    //   .map((server) => Promise
-    //     .resolve(axios.post(`http://${server}`, request))
-    //     .then((response) => response.data)
-    //     .tap((response: RPCVoteResponse) => response.vote === true && this.vote())
-    //     .catch(() => undefined)));
     const lastEntry: LogEntry = this._log[this._log.length - 1];
     const result = Promise
       .some(
         this._replicas.map((replica) => replica
-          .requestVote(this._currentTerm, this._host, lastEntry.index, lastEntry.term)
+          .requestVote(this._currentTerm, this._host,
+            (lastEntry || {}).index || 0, (lastEntry || {}).term || this._currentTerm)
           .tap((response) => {
             // if (response.term > this._currentTerm) {
             //   // Update term
@@ -119,71 +116,68 @@ export class StateMachine extends EventEmitter {
             }
             return undefined;
           })),
-        this._replicas.length / 2,
+        Math.ceil(this._replicas.length / 2),
       )
       .then(() => {
         this.setState = RaftState.LEADER;
         this._votedFor = undefined;
+        if (this._electionTimer) clearTimeout(this._electionTimer);
       })
       .then(() => this._replicas
         .map((replica) => replica
-          .appendEntries(this._currentTerm, this._host, lastEntry.term,
+          .appendEntries(this._currentTerm, this._host, (lastEntry || {}).term || this._currentTerm,
             this._commitIndex, this._log, this._lastApplied)))
       .then(() => this.startHeartbeatTimer());
     return result;
   };
 
-  // public vote = () => {
-  //   if (this._state === RaftState.CANDIDATE) {
-  //     this._numberVotes += 1;
-  //     if (this._numberVotes > this._replicas.length / 2) {
-  //       this._numberVotes = 0;
-  //       if (this._electionTimer) clearTimeout(this._electionTimer);
-  //       this.setState = RaftState.LEADER;
-  //       const request: RPCLeaderRequest = {
-  //         method: RPCMethod.LEADER_REQUEST,
-  //         message: this._host,
-  //         term: this._currentTerm,
-  //       };
-  //       return Promise.all(this._replicas
-  //         .filter((s) => !s.startsWith(this._host.split(':')[0]))
-  //         .map((server) => Promise
-  //           .resolve(axios.post(`http://${server}`, request))
-  //           .catch(() => undefined)))
-  //         .then(() => this.startHeartbeatTimer());
-  //     }
-  //   }
-  //   return undefined;
-  // };
-
   public setLeader = (leader: string, term: number) => {
     this._state = RaftState.FOLLOWER;
-    this._votedFor = leader;
+    // this._votedFor = leader;
     this._currentTerm = term;
     logger.debug(`Changing leader: ${leader}`);
+    if (this._heartbeatTimer) clearTimeout(this._heartbeatTimer);
     this.startElectionTimer();
+  };
+
+  private commit = () => {
+    for (let i = 0; i < this._toCommit.length; i++) {
+      if ((this._toCommit[i] || {}).resolve !== null) {
+        this._toCommit[i].resolve!();
+      } else {
+        this._toCommit = this._toCommit.slice(i, this._toCommit.length);
+        break;
+      }
+    }
   };
 
   public replicate = (message: string, clientId: string) => {
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       term: this._currentTerm,
-      index: this._lastApplied + 1,
+      index: this._log.length,
       data: message,
       clientId,
       operationId: nanoid(),
       leaderId: this._host,
     };
     this._log.push(entry);
+    const commitPromise: { resolve: null | ((result?: any) => void) } = { resolve: null };
+    this._toCommit.push(commitPromise);
     return new Promise((execute) => Promise
       .some(
         this._replicas.map((replica) => replica
           .appendEntries(this._currentTerm, this._host, entry.term,
             this._commitIndex, this._log)),
-        this._replicas.length / 2,
+        Math.ceil(this._replicas.length / 2),
       )
+      .then(() => new Promise((resolve) => {
+        commitPromise.resolve = resolve;
+        return this.commit();
+      }))
+      .then(() => this._commitIndex++)
       .then(() => execute())
-      // .then(() => this._commitIndex++)
+      .then(() => this._lastApplied++)
       .then(() => this._replicas.map((replica) => replica
         .appendEntries(this._currentTerm, this._host, entry.term,
           this._commitIndex, this._log))));
@@ -201,7 +195,7 @@ export class StateMachine extends EventEmitter {
     this.startHeartbeatTimer();
     return Promise.all(this._replicas)
       .map((replica) => replica
-        .appendEntries(this._currentTerm, this._host, lastEntry.term,
+        .appendEntries(this._currentTerm, this._host, (lastEntry || {}).term || this._currentTerm,
           this._commitIndex, this._log));
   };
 
@@ -209,9 +203,5 @@ export class StateMachine extends EventEmitter {
     this._log.push(entry);
     this._currentTerm = entry.term;
     this._lastApplied = entry.index;
-    logger.debug('Entry appended');
-    // AppendEntries counts as a heartbeat
-    // Add to log
-    this.heartbeat();
   };
 }
