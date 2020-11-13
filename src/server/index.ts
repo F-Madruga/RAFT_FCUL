@@ -55,6 +55,9 @@ const server = new RaftServer({
   servers: (process.env.SERVERS || '').split(',').filter((s) => !!s),
   clientPort: parseInt(process.env.CLIENT_PORT || '8080', 10),
   serverPort: parseInt(process.env.SERVER_PORT || '8081', 10),
+  minimumElectionTimeout: parseInt(process.env.MINIMUM_ELECTION_TIMEOUT || '150', 10),
+  maximumElectionTimeout: parseInt(process.env.MAXIMUM_ELECTION_TIMEOUT || '300', 10),
+  heartbeatTimeout: parseInt(process.env.HEARTBEAT_TIMEOUT || '50', 10),
   handler: execute,
 });
 // const controlPort = parseInt(process.env.CONTROL_PORT || '8082', 10);
