@@ -48,7 +48,7 @@ export class RaftClient {
   private send = (request: RPCRequest) => Promise
     .resolve(axios.post(`http://${this.leader}`, request,
       { headers: { Authorization: `Bearer ${this.token}` } }))
-    .tap(() => logger.debug(`Sent request: ${request.method}`))
+    .tap(() => logger.debug(`Sent request to ${this.leader}: ${request.method}`))
     .then<RPCResponse>((response) => response.data)
     .tap((response) => logger.debug(`Received response: ${response.method}`));
 }

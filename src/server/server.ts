@@ -97,14 +97,16 @@ export class RaftServer extends EventEmitter {
       const request: RPCServerRequest = req.body;
       switch (request.method) {
         case RPCMethod.APPEND_ENTRIES_REQUEST: {
-          if (request.prevLogIndex
-            > (this.stateMachine.log[this.stateMachine.log.length - 1] || {}).index || 0) {
+          logger.debug(`${this.stateMachine.currentTerm}, ${request.term}, ${(this.stateMachine.log[this.stateMachine.log.length - 1] || {}).index || 0}, ${request.prevLogIndex}`);
+          if (request.term < this.stateMachine.currentTerm
+            || ((this.stateMachine.log[this.stateMachine.log.length - 1] || {}).index || 0) < request.prevLogIndex) {
             return res.json({
               method: RPCMethod.APPEND_ENTRIES_RESPONSE,
               term: this.stateMachine.currentTerm,
               success: false,
             } as RPCAppendEntriesResponse);
           }
+          this.stateMachine.setLeader(request.leaderId, request.term);
           return Promise.all(request.entries)
             .map((entry) => {
               this.stateMachine.append(entry);
@@ -122,25 +124,15 @@ export class RaftServer extends EventEmitter {
             } as RPCAppendEntriesResponse));
         }
         case RPCMethod.REQUEST_VOTE_REQUEST: {
-          // vote NO if: local term is greater OR (term is equal AND local index is greater)
           logger.debug('Receive vote request');
-          if (this.stateMachine.currentTerm > request.term
-            || (this.stateMachine.currentTerm === request.term
-              && this.stateMachine.lastApplied > request.lastLogIndex)) {
-            const response: RPCRequestVoteResponse = {
-              method: RPCMethod.REQUEST_VOTE_RESPONSE,
-              term: this.stateMachine.currentTerm,
-              voteGranted: false,
-            };
-            return res.json(response);
-          }
-          // vote YES otherwise
-          const response: RPCRequestVoteResponse = {
+          return Promise.props<RPCRequestVoteResponse>({
             method: RPCMethod.REQUEST_VOTE_RESPONSE,
             term: this.stateMachine.currentTerm,
-            voteGranted: true,
-          };
-          return res.json(response);
+            voteGranted: Promise.resolve(this.stateMachine.vote(request.candidateId,
+              request.term, request.lastLogIndex))
+              .catch(() => false),
+          })
+            .then((response) => res.json(response));
         }
         default:
           break;
