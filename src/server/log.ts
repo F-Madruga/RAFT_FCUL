@@ -8,18 +8,18 @@ export type LogEntry = {
   leaderId: string,
 };
 
-export class Log {
-  private _entries: LogEntry[] = [];
+// export class Log {
+//   private _entries: LogEntry[] = [];
 
-  public addEntry = (entry: LogEntry) => {
-    this._entries.push(entry);
-  };
+//   public addEntry = (entry: LogEntry) => {
+//     this._entries.push(entry);
+//   };
 
-  public get length() { return this._entries.length; }
+//   public get length() { return this._entries.length; }
 
-  public getLogEntry = (index: number) => this._entries[index];
+//   public getLogEntry = (index: number) => this._entries[index];
 
-  public get isEmpty() { return this._entries.length <= 0; }
+//   public get isEmpty() { return this._entries.length <= 0; }
 
-  public get currentLeader() { return this._entries[this._entries.length - 1].leaderId; }
-}
+//   public get currentLeader() { return this._entries[this._entries.length - 1].leaderId; }
+// }

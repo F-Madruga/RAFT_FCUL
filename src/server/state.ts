@@ -1,9 +1,9 @@
 import Promise from 'bluebird';
 import { nanoid } from 'nanoid';
 import { EventEmitter } from 'events';
+
 import logger from '../utils/log.util';
 import { Replica } from './replica';
-
 import { LogEntry } from './log';
 
 export enum RaftState {
@@ -88,6 +88,7 @@ export class StateMachine extends EventEmitter {
   public get lastApplied() { return this._lastApplied; }
 
   private startElectionTimer = () => {
+    logger.debug('Start election timer');
     if (this._electionTimer) clearTimeout(this._electionTimer);
     const task = this.startElection;
     this._electionTimer = setTimeout(() => task(), Math.floor(Math.random()
@@ -126,14 +127,34 @@ export class StateMachine extends EventEmitter {
       .then(() => this._replicas
         .map((replica) => replica
           .appendEntries(this._currentTerm, this._host, (lastEntry || {}).term || this._currentTerm,
-            this._commitIndex, this._log, this._lastApplied)))
-      .then(() => this.startHeartbeatTimer());
+            this._commitIndex, this._log, (this._log[this._log.length - 1] || {}).index + 1 || 1)))
+      .then(() => this.startHeartbeatTimer())
+      .catch(() => logger.debug('Not enough votes'));
     return result;
+  };
+
+  public vote = (candidateId: string, term: number, lastLogIndex: number) => {
+    if (term >= this.currentTerm
+      && (!this._votedFor || this._votedFor === candidateId)
+      && lastLogIndex >= ((this._log[this._log.length - 1] || {}).index || 0)) {
+      this._votedFor = candidateId;
+      return true;
+    }
+    return false;
+    // // vote NO if: local term is greater OR (term is equal AND local index is greater)
+    // if (((this._votedFor || this._votedFor !== candidateId) && this._currentTerm <= term)
+    //   || this._currentTerm > term
+    //   || (this._currentTerm === term && this._lastApplied > lastLogIndex)) {
+    //   return false;
+    // }
+    // // vote YES otherwise
+    // this._votedFor = candidateId;
+    // return true;
   };
 
   public setLeader = (leader: string, term: number) => {
     this._state = RaftState.FOLLOWER;
-    // this._votedFor = leader;
+    if (this._currentTerm !== term) this._votedFor = undefined;
     this._currentTerm = term;
     logger.debug(`Changing leader: ${leader}`);
     if (this._heartbeatTimer) clearTimeout(this._heartbeatTimer);
@@ -152,6 +173,7 @@ export class StateMachine extends EventEmitter {
   };
 
   public replicate = (message: string, clientId: string) => {
+    this.startHeartbeatTimer();
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       term: this._currentTerm,
@@ -184,6 +206,7 @@ export class StateMachine extends EventEmitter {
   };
 
   private startHeartbeatTimer = () => {
+    logger.debug('Start heartbeat timer');
     if (this._heartbeatTimer) clearTimeout(this._heartbeatTimer);
     const task = this.heartbeat;
     this._heartbeatTimer = setTimeout(() => task(), this._heartbeatTimeout);
@@ -192,6 +215,7 @@ export class StateMachine extends EventEmitter {
 
   private heartbeat = () => {
     const lastEntry: LogEntry = this._log[this._log.length - 1];
+    logger.debug('Sending heartbeat');
     this.startHeartbeatTimer();
     return Promise.all(this._replicas)
       .map((replica) => replica
@@ -200,8 +224,12 @@ export class StateMachine extends EventEmitter {
   };
 
   public append = (entry: LogEntry) => {
+    if (this._log[entry.index - 1] && this._log[entry.index - 1].term !== entry.term) {
+      this._log = this._log.slice(0, entry.index);
+    }
     this._log.push(entry);
     this._currentTerm = entry.term;
     this._lastApplied = entry.index;
+    logger.debug(this._log);
   };
 }

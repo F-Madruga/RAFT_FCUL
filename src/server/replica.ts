@@ -1,5 +1,7 @@
 import Promise from 'bluebird';
 import axios from 'axios';
+
+import logger from '../utils/log.util';
 import {
   RPCMethod,
   RPCAppendEntriesRequest,
@@ -28,6 +30,7 @@ export class Replica {
     this._host = options.host;
     this._port = options.port;
     this._nextIndex = options.lastLogIndex + 1;
+    logger.debug(`Replica ${this._host}: ${this._nextIndex}`);
     this._matchIndex = 0;
   }
 
@@ -56,6 +59,7 @@ export class Replica {
 
   public requestVote = (term: number, candidateId: string,
     lastLogIndex: number, lastLogTerm: number) => {
+    logger.debug(`Requesting vote to ${this._host}`);
     const request: RPCRequestVoteRequest = {
       method: RPCMethod.REQUEST_VOTE_REQUEST,
       term,
@@ -67,26 +71,27 @@ export class Replica {
   };
 
   public appendEntries = (term: number, leaderId: string, prevLogTerm: number, leaderCommit: number,
-    log: LogEntry[], nextIndex: number = this.nextIndex): Promise<RPCAppendEntriesResponse> => {
+    log: LogEntry[], nextIndex: number = this._nextIndex): Promise<RPCAppendEntriesResponse> => {
     this._nextIndex = nextIndex;
+    logger.debug(`Sending entries to ${this._host}: ${this._nextIndex}, ${this._matchIndex}`);
     const request: RPCAppendEntriesRequest = {
       method: RPCMethod.APPEND_ENTRIES_REQUEST,
       term,
       leaderId,
-      entries: log.slice(this._nextIndex, log.length),
+      entries: log.slice(this._nextIndex - 1, log.length),
       prevLogIndex: this._nextIndex,
       prevLogTerm,
       leaderCommit,
     };
-    console.log('Replica:', this._host);
-    console.log('Leader log:', log);
-    console.log('New entries:', request.entries);
-    console.log('Next index:', this._nextIndex);
-    console.log('Match index:', this._matchIndex);
     return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this._host}:${this._port}`, request)
       .then((response) => {
-        if (response.success === false && this._nextIndex > 0) {
+        if (this._nextIndex <= 0) {
+          this._nextIndex = this._matchIndex + 1;
+          return response;
+        }
+        if (response.success === false) {
           this._nextIndex -= 1;
+          logger.debug('Resending request');
           return this.appendEntries(term, leaderId, prevLogTerm, leaderCommit, log);
         }
         this._matchIndex += request.entries.length;
