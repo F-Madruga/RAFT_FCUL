@@ -30,7 +30,6 @@ export class Replica {
     this._host = options.host;
     this._port = options.port;
     this._nextIndex = options.lastLogIndex + 1;
-    logger.debug(`Replica ${this._host}: ${this._nextIndex}`);
     this._matchIndex = 0;
   }
 
@@ -73,16 +72,20 @@ export class Replica {
   public appendEntries = (term: number, leaderId: string, prevLogTerm: number, leaderCommit: number,
     log: LogEntry[], nextIndex: number = this._nextIndex): Promise<RPCAppendEntriesResponse> => {
     this._nextIndex = nextIndex;
-    logger.debug(`Sending entries to ${this._host}: ${this._nextIndex}, ${this._matchIndex}`);
+    // logger.debug(`Sending entries to ${this._host}: ${this._nextIndex}, ${this._matchIndex}`);
     const request: RPCAppendEntriesRequest = {
       method: RPCMethod.APPEND_ENTRIES_REQUEST,
       term,
       leaderId,
       entries: log.slice(this._nextIndex - 1, log.length),
-      prevLogIndex: this._nextIndex,
+      prevLogIndex: (log[this._nextIndex - 1] || {}).index || 0,
       prevLogTerm,
       leaderCommit,
     };
+    if (request.entries.length > 0) {
+      logger.debug('Entries to append:');
+      logger.debug(request.entries);
+    }
     return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this._host}:${this._port}`, request)
       .then((response) => {
         if (this._nextIndex <= 0) {

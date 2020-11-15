@@ -87,8 +87,12 @@ export class StateMachine extends EventEmitter {
 
   public get lastApplied() { return this._lastApplied; }
 
+  public get commitIndex() { return this._commitIndex; }
+
+  public set commitIndex(index: number) { this._commitIndex = index; }
+
   private startElectionTimer = () => {
-    logger.debug('Start election timer');
+    // logger.debug('Start election timer');
     if (this._electionTimer) clearTimeout(this._electionTimer);
     const task = this.startElection;
     this._electionTimer = setTimeout(() => task(), Math.floor(Math.random()
@@ -156,7 +160,7 @@ export class StateMachine extends EventEmitter {
     this._state = RaftState.FOLLOWER;
     if (this._currentTerm !== term) this._votedFor = undefined;
     this._currentTerm = term;
-    logger.debug(`Changing leader: ${leader}`);
+    // logger.debug(`Changing leader: ${leader}`);
     if (this._heartbeatTimer) clearTimeout(this._heartbeatTimer);
     this.startElectionTimer();
   };
@@ -177,13 +181,14 @@ export class StateMachine extends EventEmitter {
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       term: this._currentTerm,
-      index: this._log.length,
+      index: this._log.length + 1,
       data: message,
       clientId,
       operationId: nanoid(),
       leaderId: this._host,
     };
     this._log.push(entry);
+    logger.debug(this._log);
     const commitPromise: { resolve: null | ((result?: any) => void) } = { resolve: null };
     this._toCommit.push(commitPromise);
     return new Promise((execute) => Promise
@@ -206,7 +211,7 @@ export class StateMachine extends EventEmitter {
   };
 
   private startHeartbeatTimer = () => {
-    logger.debug('Start heartbeat timer');
+    // logger.debug('Start heartbeat timer');
     if (this._heartbeatTimer) clearTimeout(this._heartbeatTimer);
     const task = this.heartbeat;
     this._heartbeatTimer = setTimeout(() => task(), this._heartbeatTimeout);
@@ -215,7 +220,7 @@ export class StateMachine extends EventEmitter {
 
   private heartbeat = () => {
     const lastEntry: LogEntry = this._log[this._log.length - 1];
-    logger.debug('Sending heartbeat');
+    // logger.debug('Sending heartbeat');
     this.startHeartbeatTimer();
     return Promise.all(this._replicas)
       .map((replica) => replica

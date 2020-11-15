@@ -114,7 +114,7 @@ services:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2 # ,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
       - LOG_LEVEL=debug
       - PORT=8080
-      - REQUEST_INTERVAL=20000
+      - REQUEST_INTERVAL=10000
     depends_on:
       - server1
       - server2
