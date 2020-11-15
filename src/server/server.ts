@@ -97,7 +97,10 @@ export class RaftServer extends EventEmitter {
       const request: RPCServerRequest = req.body;
       switch (request.method) {
         case RPCMethod.APPEND_ENTRIES_REQUEST: {
-          logger.debug(`${this.stateMachine.currentTerm}, ${request.term}, ${(this.stateMachine.log[this.stateMachine.log.length - 1] || {}).index || 0}, ${request.prevLogIndex}`);
+          if (request.entries.length > 0) {
+            logger.debug(`${this.stateMachine.currentTerm}, ${request.term}, ${(this.stateMachine.log[this.stateMachine.log.length - 1] || {}).index || 0}, ${request.prevLogIndex}`);
+            logger.debug(`${request.term < this.stateMachine.currentTerm}, ${((this.stateMachine.log[this.stateMachine.log.length - 1] || {}).index || 0) < request.prevLogIndex}`);
+          }
           if (request.term < this.stateMachine.currentTerm
             || ((this.stateMachine.log[this.stateMachine.log.length - 1] || {}).index || 0) < request.prevLogIndex) {
             return res.json({
@@ -108,7 +111,7 @@ export class RaftServer extends EventEmitter {
           }
           this.stateMachine.setLeader(request.leaderId, request.term);
           return Promise.all(request.entries)
-            .map((entry) => {
+            .mapSeries((entry) => {
               this.stateMachine.append(entry);
               // if (entry.index <= request.leaderCommit) {
               //   // commit
@@ -116,6 +119,13 @@ export class RaftServer extends EventEmitter {
               // check if entries already exist in log
               return options.handler(entry.data);
             })
+            // .tap(() => {
+            //   if (request.leaderCommit > this.stateMachine.commitIndex
+            //     && request.entries.length > 0) {
+            //     this.stateMachine.commitIndex = Math
+            //       .min(request.leaderCommit, request.entries[request.entries.length - 1].index);
+            //   }
+            // })
             // .tap(() => logger.debug('Entry appended'))
             .tap(() => res.json({
               method: RPCMethod.APPEND_ENTRIES_RESPONSE,
@@ -124,7 +134,7 @@ export class RaftServer extends EventEmitter {
             } as RPCAppendEntriesResponse));
         }
         case RPCMethod.REQUEST_VOTE_REQUEST: {
-          logger.debug('Receive vote request');
+          logger.debug(`Receive vote request from: ${request.candidateId}`);
           return Promise.props<RPCRequestVoteResponse>({
             method: RPCMethod.REQUEST_VOTE_RESPONSE,
             term: this.stateMachine.currentTerm,

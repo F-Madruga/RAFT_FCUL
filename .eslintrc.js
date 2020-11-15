@@ -22,7 +22,7 @@ module.exports = {
     // Each file may contain only a particular number of classes.
     'max-classes-per-file': ['error', 5],
     // Cyclomatic complexity threshold.
-    complexity: ['error', { max: 10 }],
+    complexity: ['error', { max: 15 }],
   },
   parserOptions: {
     project: './tsconfig.json',
