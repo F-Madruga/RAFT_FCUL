@@ -16,7 +16,6 @@ export type StateMachineOptions = {
   host: string,
   port: number,
   servers: string[],
-  initialState?: RaftState,
   minimumElectionTimeout?: number,
   maximumElectionTimeout?: number,
   heartbeatTimeout?: number,
@@ -24,45 +23,30 @@ export type StateMachineOptions = {
 
 export class StateMachine extends EventEmitter {
   private _state: RaftState;
-
-  private _electionTimer?: NodeJS.Timeout;
-
-  private _heartbeatTimer?: NodeJS.Timeout;
-
-  private _minimumElectionTimeout: number;
-
-  private _maximumElectionTimeout: number;
-
-  private _heartbeatTimeout: number;
-
-  private _numberVotes: number = 0;
-
-  private _replicas: Replica[];
-
   private _host: string;
-
-  private _votedFor?: string;
-
   private _port: number;
-
+  private _electionTimer?: NodeJS.Timeout;
+  private _heartbeatTimer?: NodeJS.Timeout;
+  private _minimumElectionTimeout: number;
+  private _maximumElectionTimeout: number;
+  private _heartbeatTimeout: number;
+  private _replicas: Replica[];
+  private _leader?: string;
+  private _votedFor?: string;
   private _currentTerm: number = 0;
-
   private _lastApplied: number = 0;
-
   private _log: LogEntry[];
-
   private _toCommit: { resolve: null | ((result?: any) => void) }[] = [];
-
   private _commitIndex: number = 0;
 
   constructor(options: StateMachineOptions) {
     super();
-    this._state = options.initialState || RaftState.FOLLOWER;
+    this._state = RaftState.FOLLOWER;
+    this._host = options.host;
+    this._port = options.port;
     this._minimumElectionTimeout = options.minimumElectionTimeout || 150;
     this._maximumElectionTimeout = options.maximumElectionTimeout || 300;
     this._heartbeatTimeout = options.heartbeatTimeout || 50;
-    this._host = options.host;
-    this._port = options.port;
     this._log = []; // check disk for log
     this._replicas = options.servers.map((server) => new Replica({
       host: server,
@@ -78,6 +62,10 @@ export class StateMachine extends EventEmitter {
   }
 
   public get state() { return this._state; }
+
+  public get leader() { return this._leader; }
+
+  public get host() { return this._host; }
 
   public get log() { return this._log; }
 
@@ -101,6 +89,7 @@ export class StateMachine extends EventEmitter {
   };
 
   private startElection = () => {
+    logger.debug('Started election');
     this._state = RaftState.CANDIDATE;
     this._currentTerm += 1;
     this._votedFor = this._host;
@@ -112,10 +101,13 @@ export class StateMachine extends EventEmitter {
           .requestVote(this._currentTerm, this._host,
             (lastEntry || {}).index || 0, (lastEntry || {}).term || this._currentTerm)
           .tap((response) => {
-            // if (response.term > this._currentTerm) {
-            //   // Update term
-            //   result.cancel();
-            // }
+            logger.debug(`${replica.host} vote: ${response.voteGranted}`);
+            if (response.term > this._currentTerm) {
+              this._votedFor = undefined;
+              logger.debug(`Changing leader: ${replica.host}`);
+              this.setLeader(replica.host, response.term);
+              result.cancel();
+            }
             if (!response.voteGranted) {
               return Promise.reject(new Error());
             }
@@ -124,36 +116,38 @@ export class StateMachine extends EventEmitter {
         Math.ceil(this._replicas.length / 2),
       )
       .then(() => {
+        logger.debug('Elected leader');
         this.setState = RaftState.LEADER;
+        this._leader = this._host;
         this._votedFor = undefined;
         if (this._electionTimer) clearTimeout(this._electionTimer);
       })
       .then(() => this._replicas
         .map((replica) => replica
           .appendEntries(this._currentTerm, this._host, (lastEntry || {}).term || this._currentTerm,
-            this._commitIndex, this._log, (this._log[this._log.length - 1] || {}).index + 1 || 1)))
+            this._commitIndex, this._log, (this._log[this._log.length - 1] || {}).index || 0)
+          .catch(() => undefined)))
       .then(() => this.startHeartbeatTimer())
-      .catch(() => logger.debug('Not enough votes'));
+      // .tapCatch((e) => e.map(console.log)) // ! delete after fix
+      .catch(() => {
+        logger.debug('Not enough votes');
+        this.setState = RaftState.FOLLOWER;
+        this._votedFor = undefined;
+      });
     return result;
   };
 
   public vote = (candidateId: string, term: number, lastLogIndex: number) => {
-    if (term >= this.currentTerm
+    logger.debug(`${term}, ${this._currentTerm}, ${candidateId}, ${this._votedFor}, ${lastLogIndex}, ${(this._log[this._log.length - 1] || {}).index || 0}, ${term >= this._currentTerm
+      && (!this._votedFor || this._votedFor === candidateId)
+      && lastLogIndex >= ((this._log[this._log.length - 1] || {}).index || 0)}`);
+    if (term >= this._currentTerm
       && (!this._votedFor || this._votedFor === candidateId)
       && lastLogIndex >= ((this._log[this._log.length - 1] || {}).index || 0)) {
       this._votedFor = candidateId;
       return true;
     }
     return false;
-    // // vote NO if: local term is greater OR (term is equal AND local index is greater)
-    // if (((this._votedFor || this._votedFor !== candidateId) && this._currentTerm <= term)
-    //   || this._currentTerm > term
-    //   || (this._currentTerm === term && this._lastApplied > lastLogIndex)) {
-    //   return false;
-    // }
-    // // vote YES otherwise
-    // this._votedFor = candidateId;
-    // return true;
   };
 
   public setLeader = (leader: string, term: number) => {
@@ -161,6 +155,7 @@ export class StateMachine extends EventEmitter {
     if (this._currentTerm !== term) this._votedFor = undefined;
     this._currentTerm = term;
     // logger.debug(`Changing leader: ${leader}`);
+    this._leader = leader;
     if (this._heartbeatTimer) clearTimeout(this._heartbeatTimer);
     this.startElectionTimer();
   };
