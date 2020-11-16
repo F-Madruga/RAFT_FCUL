@@ -29,11 +29,12 @@ export class RaftClient {
     .then((response) => {
       switch (response.method) {
         case RPCMethod.LEADER_RESPONSE: {
-          this.leader = `${response.message}:${this.leader.split(':')[1]}`; // não é o melhor código
+          this.leader = `${response.message}:${this.leader.split(':')[1]}`; // ! fixme
           logger.debug(`Changing leader: ${this.leader}`);
           return this.request(message);
         }
         case RPCMethod.COMMAND_RESPONSE: {
+          if (response.clientId) this.token = response.clientId;
           return response.message;
         }
         case RPCMethod.ERROR_RESPONSE: {

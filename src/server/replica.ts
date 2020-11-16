@@ -69,23 +69,20 @@ export class Replica {
     return this.RPCRequest<RPCRequestVoteResponse>(`http://${this._host}:${this._port}`, request);
   };
 
-  public appendEntries = (term: number, leaderId: string, prevLogTerm: number, leaderCommit: number,
-    log: LogEntry[], nextIndex: number = this._nextIndex): Promise<RPCAppendEntriesResponse> => {
-    this._nextIndex = nextIndex;
+  public appendEntries = (term: number, leaderId: string, prevLogTerm: number,
+    leaderCommit: number, log: LogEntry[],
+    lastLogIndex: number = this._nextIndex - 1): Promise<RPCAppendEntriesResponse> => {
+    this._nextIndex = lastLogIndex + 1;
     // logger.debug(`Sending entries to ${this._host}: ${this._nextIndex}, ${this._matchIndex}`);
     const request: RPCAppendEntriesRequest = {
       method: RPCMethod.APPEND_ENTRIES_REQUEST,
       term,
       leaderId,
-      entries: log.slice(this._nextIndex - 1, log.length),
+      entries: log.slice((log[this._nextIndex - 1] || {}).index || 0, log.length),
       prevLogIndex: (log[this._nextIndex - 1] || {}).index || 0,
       prevLogTerm,
       leaderCommit,
     };
-    if (request.entries.length > 0) {
-      logger.debug('Entries to append:');
-      logger.debug(request.entries);
-    }
     return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this._host}:${this._port}`, request)
       .then((response) => {
         if (this._nextIndex <= 0) {

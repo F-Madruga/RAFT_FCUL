@@ -60,16 +60,4 @@ const server = new RaftServer({
   heartbeatTimeout: parseInt(process.env.HEARTBEAT_TIMEOUT || '50', 10),
   handler: execute,
 });
-// const controlPort = parseInt(process.env.CONTROL_PORT || '8082', 10);
-// new WebSocket.Server({ port: controlPort },
-//   () => logger.info(`Listening for control connections on port ${controlPort}`))
-//   .on('connection', (ws) => {
-//     const handlers = {
-//       state: (state: RaftState) => ws.send(JSON.stringify({ state })),
-//     };
-//     Object.entries(handlers).map(([event, handler]) => server.on(event, handler));
-//     const cleanUp = () => Object.entries(handlers)
-//       .map(([event, handler]) => server.removeListener(event, handler));
-//     ws.on('close', cleanUp).on('error', cleanUp);
-//   });
 process.addListener('SIGTERM', () => server.close());

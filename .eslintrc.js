@@ -15,6 +15,7 @@ module.exports = {
     }],
     'no-underscore-dangle': 'off',
     'no-plusplus': 'off',
+    '@typescript-eslint/lines-between-class-members': 'off',
     // Disallow calls to methods of the console object.
     'no-console': 'off',
     // Reduce the scrolling required when reading through code.

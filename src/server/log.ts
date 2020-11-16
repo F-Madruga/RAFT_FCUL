@@ -3,9 +3,9 @@ export type LogEntry = {
   term: number,
   index: number,
   data: string,
+  leaderId: string,
   clientId: string,
   operationId: string,
-  leaderId: string,
 };
 
 // export class Log {
