@@ -1,0 +1,29 @@
+# global args
+ARG ENV=production
+ARG WORK_DIR=/home/node/app
+# builder image
+FROM node:12.18.2-alpine AS builder
+ARG ENV
+ENV NODE_ENV=$ENV
+ARG NPM_TOKEN
+ENV NPM_TOKEN=$NPM_TOKEN
+ARG WORK_DIR
+WORKDIR $WORK_DIR
+COPY ./babel.config.js $WORK_DIR/
+COPY ./tsconfig.json $WORK_DIR/
+COPY ./package.json $WORK_DIR/
+RUN npm install --production=false > /dev/null
+COPY ./src/client $WORK_DIR/src/client
+COPY ./src/utils $WORK_DIR/src/utils
+RUN npm run build:client --silent
+RUN npm prune --production
+# final image
+FROM node:12.18.2-alpine
+ARG ENV
+ENV NODE_ENV=$ENV
+ARG WORK_DIR
+WORKDIR $WORK_DIR
+COPY --from=builder $WORK_DIR/node_modules $WORK_DIR/node_modules
+COPY --from=builder $WORK_DIR/dist $WORK_DIR/dist
+COPY --from=builder $WORK_DIR/package*.json $WORK_DIR/
+CMD [ "npm", "run", "start:client", "--silent" ]
