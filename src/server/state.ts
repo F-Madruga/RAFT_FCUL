@@ -5,6 +5,7 @@ import { EventEmitter } from 'events';
 import logger from '../utils/log.util';
 import { Replica } from './replica';
 import { LogEntry } from './log';
+import { Log } from './db';
 
 export enum RaftState {
   LEADER = 'LEADER',
@@ -182,7 +183,8 @@ export class StateMachine extends EventEmitter {
       operationId: nanoid(),
       leaderId: this._host,
     };
-    this._log.push(entry);
+    // this._log.push(entry);
+    this.add(entry);
     logger.debug(this._log);
     const commitPromise: { resolve: null | ((result?: any) => void) } = { resolve: null };
     this._toCommit.push(commitPromise);
@@ -227,9 +229,15 @@ export class StateMachine extends EventEmitter {
     if (this._log[entry.index - 1] && this._log[entry.index - 1].term !== entry.term) {
       this._log = this._log.slice(0, entry.index);
     }
-    this._log.push(entry);
+    // this._log.push(entry);
+    this.add(entry);
     this._currentTerm = entry.term;
     this._lastApplied = entry.index;
     logger.debug(this._log);
+  };
+
+  public add = (entry: LogEntry) => {
+    this._log.push(entry);
+    Log.build(entry);
   };
 }

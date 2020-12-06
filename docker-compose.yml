@@ -20,6 +20,7 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
+      - DATABASE_FILE=Raft_DB.db
 
   server2:
     build:
@@ -40,6 +41,7 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
+      - DATABASE_FILE=Raft_DB.db
 
   # server3:
   #   build:
@@ -60,6 +62,7 @@ services:
   #     - MINIMUM_ELECTION_TIMEOUT=150
   #     - MAXIMUM_ELECTION_TIMEOUT=300
   #     - HEARTBEAT_TIMEOUT=50
+  #     - DATABASE_FILE=Raft_DB.db
 
   # server4:
   #   build:
@@ -80,6 +83,7 @@ services:
   #     - MINIMUM_ELECTION_TIMEOUT=150
   #     - MAXIMUM_ELECTION_TIMEOUT=300
   #     - HEARTBEAT_TIMEOUT=50
+  #     - DATABASE_FILE=Raft_DB.db
 
   # server5:
   #   build:
@@ -100,6 +104,7 @@ services:
   #     - MINIMUM_ELECTION_TIMEOUT=150
   #     - MAXIMUM_ELECTION_TIMEOUT=300
   #     - HEARTBEAT_TIMEOUT=50
+  #     - DATABASE_FILE=Raft_DB.db
 
   client:
     build:
