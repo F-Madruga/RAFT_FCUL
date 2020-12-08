@@ -34,6 +34,9 @@ const Log = Client.define('Log', {
     type: DataTypes.STRING,
     allowNull: false,
   },
-}, {});
+}, {
+  tableName: 'logs',
+  timestamps: false,
+});
 
 export { Client, Log };
