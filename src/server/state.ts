@@ -5,7 +5,7 @@ import { EventEmitter } from 'events';
 import logger from '../utils/log.util';
 import { Replica } from './replica';
 import { LogEntry } from './log';
-import { Log } from './db';
+import { Client, Log } from './db';
 
 export enum RaftState {
   LEADER = 'LEADER',
@@ -42,13 +42,16 @@ export class StateMachine extends EventEmitter {
 
   constructor(options: StateMachineOptions) {
     super();
+    this._log = [];
+    Client.sync()
+      .then(() => Log.findAll({ raw: true }))
+      .then((logs) => { this._log = logs as any[]; });
     this._state = RaftState.FOLLOWER;
     this._host = options.host;
     this._port = options.port;
     this._minimumElectionTimeout = options.minimumElectionTimeout || 150;
     this._maximumElectionTimeout = options.maximumElectionTimeout || 300;
     this._heartbeatTimeout = options.heartbeatTimeout || 50;
-    this._log = []; // check disk for log
     this._replicas = options.servers.map((server) => new Replica({
       host: server,
       port: this._port,
@@ -228,6 +231,7 @@ export class StateMachine extends EventEmitter {
   public append = (entry: LogEntry) => {
     if (this._log[entry.index - 1] && this._log[entry.index - 1].term !== entry.term) {
       this._log = this._log.slice(0, entry.index);
+      // TODO: delete database entries
     }
     // this._log.push(entry);
     this.add(entry);
@@ -238,6 +242,6 @@ export class StateMachine extends EventEmitter {
 
   public add = (entry: LogEntry) => {
     this._log.push(entry);
-    Log.build(entry);
+    return Log.create(entry);
   };
 }
