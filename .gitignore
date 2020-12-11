@@ -57,3 +57,6 @@ TODO*
 
 # Pdf
 *.pdf
+
+# SQLite Databases
+*.db
