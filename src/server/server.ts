@@ -66,18 +66,31 @@ export class RaftServer extends EventEmitter {
       state: this._state,
       heartbeatTimeout: options.heartbeatTimeout,
     });
-    // TODO: add event handlers
-    this._electionManager.on('elected', () => {
-      this._replicationManager.start();
+    this._state.on('stateChanged', (state: RaftState) => {
+      switch (state) {
+        case RaftState.FOLLOWER:
+          this._electionManager.start();
+          this._replicationManager.stop();
+          break;
+        case RaftState.CANDIDATE:
+          this._electionManager.start();
+          this._replicationManager.stop();
+          break;
+        case RaftState.LEADER:
+          this._electionManager.stop();
+          this._replicationManager.start();
+          break;
+        default:
+      }
     });
+    this._state.state = RaftState.FOLLOWER;
     // TODO: add message queues
-    // TODO: add log to state + database
     this._commandServer = express().use(bodyParser.json()).use(Router().post('/', (req, res) => {
       // if not leader, send leader info
       if (this._state.state !== RaftState.LEADER) {
         const response: RPCLeaderResponse = {
           method: RPCMethod.LEADER_RESPONSE,
-          message: this._state.leader || this._state.host.toString(),
+          message: this._state.votedFor || this._state.host.toString(),
         };
         return res.json(response);
       }
@@ -122,7 +135,7 @@ export class RaftServer extends EventEmitter {
             if (request.term > this._state.currentTerm) {
               logger.debug(`Changing leader: ${request.leaderId}`);
             }
-            this._state.setLeader(request.leaderId, request.term);
+            this._state.setLeader(request.term, request.leaderId);
           }
           if (request.term < this._state.currentTerm
             || ((this._state.log[this._state.log.length - 1] || {}).index || 0)

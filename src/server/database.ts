@@ -26,6 +26,7 @@ export const Log = Client.define('Log', {
   index: {
     type: DataTypes.NUMBER,
     allowNull: false,
+    primaryKey: true,
   },
   data: {
     type: DataTypes.STRING,
@@ -52,6 +53,7 @@ export const State = Client.define('State', {
   currentTerm: {
     type: DataTypes.NUMBER,
     allowNull: false,
+    primaryKey: true,
   },
   votedFor: {
     type: DataTypes.STRING,
@@ -66,6 +68,7 @@ export const Snapshot = Client.define('Snapshot', {
   key: {
     type: DataTypes.STRING,
     allowNull: false,
+    primaryKey: true,
   },
   value: {
     type: DataTypes.STRING,
