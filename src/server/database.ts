@@ -12,6 +12,7 @@ export const Client = new Sequelize({
   dialect: 'sqlite',
   storage: argv.database || process.env.DATABASE_FILE
     || `raft_${argv.host || process.env.HOST || 'database'}.db`,
+  logging: false,
 });
 
 export const Log = Client.define('Log', {
@@ -26,6 +27,7 @@ export const Log = Client.define('Log', {
   index: {
     type: DataTypes.NUMBER,
     allowNull: false,
+    primaryKey: true,
   },
   data: {
     type: DataTypes.STRING,
@@ -52,10 +54,11 @@ export const State = Client.define('State', {
   currentTerm: {
     type: DataTypes.NUMBER,
     allowNull: false,
+    primaryKey: true,
   },
   votedFor: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
 }, {
   tableName: 'state',
@@ -66,6 +69,7 @@ export const Snapshot = Client.define('Snapshot', {
   key: {
     type: DataTypes.STRING,
     allowNull: false,
+    primaryKey: true,
   },
   value: {
     type: DataTypes.STRING,

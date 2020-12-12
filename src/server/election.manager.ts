@@ -1,7 +1,9 @@
+import Promise from 'bluebird';
 import { EventEmitter } from 'events';
 
 import logger from '../utils/log.util';
-import { State } from './state';
+import { RPCRequestVoteRequest } from '../utils/rpc.util';
+import { State, RaftState } from './state';
 
 export type ElectionManagerOptions = {
   state: State,
@@ -10,85 +12,78 @@ export type ElectionManagerOptions = {
 };
 
 export class ElectionManager extends EventEmitter {
-  private _electionTimer?: NodeJS.Timeout;
+  private _timer?: NodeJS.Timeout;
   private _state: State;
-  private _minimumElectionTimeout: number;
-  private _maximumElectionTimeout: number;
+  private _minimumTimeout: number;
+  private _maximumTimeout: number;
 
   constructor(options: ElectionManagerOptions) {
     super();
     this._state = options.state;
-    this._minimumElectionTimeout = options.minimumElectionTimeout || 150;
-    this._maximumElectionTimeout = options.maximumElectionTimeout || 300;
-    this.start();
+    this._minimumTimeout = options.minimumElectionTimeout || 150;
+    this._maximumTimeout = options.maximumElectionTimeout || 300;
   }
 
-  private start = () => {
-    // logger.debug('Start election timer');
-    if (this._electionTimer) clearTimeout(this._electionTimer);
-    const task = this.startElection;
-    this._electionTimer = setTimeout(() => task(), Math.floor(Math.random()
-      * (this._maximumElectionTimeout - this._minimumElectionTimeout + 1))
-      + this._minimumElectionTimeout);
+  public start = () => {
+    this.stop();
+    const timeout = Math.floor(Math.random() * (this._maximumTimeout - this._minimumTimeout + 1))
+      + this._minimumTimeout;
+    this._timer = setTimeout(() => this.startElection(), timeout);
+  };
+
+  public stop = () => {
+    if (this._timer) {
+      clearTimeout(this._timer);
+      this._timer = undefined;
+    }
   };
 
   private startElection = () => {
-    logger.debug('Started election');
-    this._state = RaftState.CANDIDATE;
-    this._currentTerm += 1;
-    this._votedFor = this._host;
-    this.start();
-    const lastEntry: LogEntry = this._log[this._log.length - 1];
-    const result = Promise
-      .some(
-        this._replicas.map((replica) => replica
-          .requestVote(this._currentTerm, this._host,
-            (lastEntry || {}).index || 0, (lastEntry || {}).term || this._currentTerm)
-          .tap((response) => {
-            logger.debug(`${replica.host} vote: ${response.voteGranted}`);
-            if (response.term > this._currentTerm) {
-              // this._votedFor = undefined;
-              logger.debug(`Changing leader: ${replica.host}`);
-              this.setLeader(replica.host, response.term);
-              result.cancel();
-            }
-            if (!response.voteGranted) {
-              return Promise.reject(new Error());
-            }
-            return undefined;
-          })),
-        Math.ceil(this._replicas.length / 2),
-      )
+    logger.debug('Election started');
+    this._state.state = RaftState.CANDIDATE;
+    this._state.setCurrentTerm(this._state.currentTerm + 1);
+    this._state.setVotedFor(this._state.host.toString());
+    const lastEntry = this._state.getLastLogEntry();
+    const term = this._state.currentTerm;
+    const result = Promise.some(
+      this._state.replicas.map((replica) => replica
+        .requestVote(term, this._state.host.toString(), lastEntry.index, lastEntry.term)
+        .tap((response) => {
+          if (response.term > term) {
+            this._state.state = RaftState.FOLLOWER;
+            this._state.setCurrentTerm(response.term);
+            result.cancel();
+          }
+          if (!response.voteGranted || response.term !== term) {
+            return Promise.reject(new Error());
+          }
+          return Promise.resolve();
+        })
+        .tapCatch(() => logger.debug(`Replica ${replica.toString()} responded with no vote`))),
+      this._state.replicas.length / 2,
+    )
       .then(() => {
-        logger.debug('Elected leader');
-        this.setState = RaftState.LEADER;
-        this._leader = this._host;
-        // this._votedFor = undefined;
-        if (this._electionTimer) clearTimeout(this._electionTimer);
+        logger.info('Elected leader');
+        this._state.state = RaftState.LEADER;
+        this._state.leader = this._state.host.toString();
       })
-      .then(() => this._replicas
-        .map((replica) => replica
-          .appendEntries(this._currentTerm, this._host, (lastEntry || {}).term || this._currentTerm,
-            this._commitIndex, this._log, (this._log[this._log.length - 1] || {}).index || 0)
-          .catch(() => undefined)))
-      .then(() => this.startHeartbeatTimer())
-      // .tapCatch((e) => e.map(console.log)) // ! delete after fix
-      .catch(() => {
-        logger.debug('Not enough votes');
-        this.setState = RaftState.FOLLOWER;
-        // this._votedFor = undefined;
-      });
+      .catch(() => logger.debug('Not enough votes'));
     return result;
   };
 
-  public vote = (candidateId: string, term: number, lastLogIndex: number) => {
-    logger.debug(`${term}, ${this._currentTerm}, ${candidateId}, ${this._votedFor}, ${lastLogIndex}, ${(this._log[this._log.length - 1] || {}).index || 0}, ${term >= this._currentTerm
-      && (!this._votedFor || this._votedFor === candidateId)
-      && lastLogIndex >= ((this._log[this._log.length - 1] || {}).index || 0)}`);
-    if (term >= this._currentTerm
-      && (!this._votedFor || this._votedFor === candidateId)
-      && lastLogIndex >= ((this._log[this._log.length - 1] || {}).index || 0)) {
-      this._votedFor = candidateId;
+  public processVote = (request: RPCRequestVoteRequest) => {
+    logger.debug('Received vote request');
+    if (request.term < this._state.currentTerm) {
+      return false;
+    }
+    if (request.term > this._state.currentTerm) {
+      this._state.state = RaftState.FOLLOWER;
+      this._state.setCurrentTerm(request.term);
+    }
+    const lastEntry = this._state.getLastLogEntry();
+    if ((!this._state.votedFor || this._state.votedFor === request.candidateId)
+      && request.lastLogIndex >= lastEntry.index) {
+      this._state.setVotedFor(request.candidateId);
       return true;
     }
     return false;
