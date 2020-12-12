@@ -39,9 +39,9 @@ const control = new WebSocketServer({
 });
 control.on('connection', (ws) => ws.on('open', () => {
   const listener = (state: string) => ws.send(state);
-  server.addListener('state', listener);
-  ws.on('close', () => server.removeListener('state', listener));
-  ws.on('error', () => server.removeListener('state', listener));
+  server.addListener('stateChanged', listener);
+  ws.on('close', () => server.removeListener('stateChanged', listener));
+  ws.on('error', () => server.removeListener('stateChanged', listener));
 }));
 
 process.addListener('SIGTERM', () => server.close());

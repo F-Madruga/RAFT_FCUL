@@ -66,18 +66,33 @@ export class RaftServer extends EventEmitter {
       state: this._state,
       heartbeatTimeout: options.heartbeatTimeout,
     });
-    // TODO: add event handlers
-    this._electionManager.on('elected', () => {
-      this._replicationManager.start();
+    this._state.on('stateChanged', (state: RaftState) => {
+      // logger.debug(`Changing state: ${state}`);
+      this.emit('stateChanged', state);
+      switch (state) {
+        case RaftState.FOLLOWER:
+          this._electionManager.start();
+          this._replicationManager.stop();
+          break;
+        case RaftState.CANDIDATE:
+          this._electionManager.start();
+          this._replicationManager.stop();
+          break;
+        case RaftState.LEADER:
+          this._electionManager.stop();
+          this._replicationManager.heartbeat();
+          this._replicationManager.start();
+          break;
+        default:
+      }
     });
-    // TODO: add message queues
-    // TODO: add log to state + database
+    this._state.state = RaftState.FOLLOWER;
     this._commandServer = express().use(bodyParser.json()).use(Router().post('/', (req, res) => {
       // if not leader, send leader info
       if (this._state.state !== RaftState.LEADER) {
         const response: RPCLeaderResponse = {
           method: RPCMethod.LEADER_RESPONSE,
-          message: this._state.leader || this._state.host.toString(),
+          message: this._state.votedFor || this._state.host.toString(),
         };
         return res.json(response);
       }
@@ -92,12 +107,14 @@ export class RaftServer extends EventEmitter {
             : this._replicationManager.replicate(request.message, clientId)))
             .tap(() => logger.debug(`Processing client request: ${request.message}`))
             .then(() => options.store.apply(request.message))
-            .then((response) => ({
-              method: RPCMethod.COMMAND_RESPONSE,
-              message: response,
-              ...(token ? {} : { clientId }),
-            } as RPCCommandResponse))
-            .then((response) => res.json(response));
+            .then((message) => {
+              const response: RPCCommandResponse = {
+                method: RPCMethod.COMMAND_RESPONSE,
+                message,
+                ...(token ? {} : { clientId }),
+              };
+              return res.json(response);
+            });
         }
         default:
           break;
@@ -113,60 +130,76 @@ export class RaftServer extends EventEmitter {
     this._raftServer = express().use(bodyParser.json()).use(Router().post('/', (req, res) => {
       const request: RPCServerRequest = req.body;
       switch (request.method) {
-        case RPCMethod.APPEND_ENTRIES_REQUEST: {
-          if (request.entries.length > 0) {
-            logger.debug(`${this._state.currentTerm}, ${request.term}, ${(this._state.log[this._state.log.length - 1] || {}).index || 0}, ${request.prevLogIndex}`);
-            logger.debug(`${request.term < this._state.currentTerm}, ${((this._state.log[this._state.log.length - 1] || {}).index || 0) < request.prevLogIndex}`);
-          }
-          if (request.term >= this._state.currentTerm) {
-            if (request.term > this._state.currentTerm) {
-              logger.debug(`Changing leader: ${request.leaderId}`);
-            }
-            this._state.setLeader(request.leaderId, request.term);
-          }
-          if (request.term < this._state.currentTerm
-            || ((this._state.log[this._state.log.length - 1] || {}).index || 0)
-            < request.prevLogIndex) {
+        case RPCMethod.APPEND_ENTRIES_REQUEST:
+          if (request.term < this._state.currentTerm) {
             return res.json({
               method: RPCMethod.APPEND_ENTRIES_RESPONSE,
               term: this._state.currentTerm,
               success: false,
             } as RPCAppendEntriesResponse);
           }
-          return Promise.all(request.entries)
-            .mapSeries((entry) => {
-              this._state.append(entry);
-              // if (entry.index <= request.leaderCommit) {
-              //   // commit
-              // }
-              // check if entries already exist in log
-              return options.store.apply(entry.data);
-            })
-            // .tap(() => {
-            //   if (request.leaderCommit > this.stateMachine.commitIndex
-            //     && request.entries.length > 0) {
-            //     this.stateMachine.commitIndex = Math
-            //       .min(request.leaderCommit, request.entries[request.entries.length - 1].index);
-            //   }
-            // })
-            // .tap(() => logger.debug('Entry appended'))
-            .tap(() => res.json({
-              method: RPCMethod.APPEND_ENTRIES_RESPONSE,
-              term: this._state.currentTerm,
-              success: true,
-            } as RPCAppendEntriesResponse));
-        }
-        case RPCMethod.REQUEST_VOTE_REQUEST: {
-          logger.debug(`Receive vote request from: ${request.candidateId}`);
-          return Promise.props<RPCRequestVoteResponse>({
-            method: RPCMethod.REQUEST_VOTE_RESPONSE,
+          // logger.debug(request);
+          this._state.state = RaftState.FOLLOWER;
+          this._state.setCurrentTerm(request.term);
+          this._state.leader = request.leaderId;
+          return res.json({
+            method: RPCMethod.APPEND_ENTRIES_RESPONSE,
             term: this._state.currentTerm,
-            voteGranted: Promise.resolve(this._electionManager.vote(request.candidateId,
-              request.term, request.lastLogIndex))
-              .catch(() => false),
-          })
-            .then((response) => res.json(response));
-        }
+            success: true,
+          } as RPCAppendEntriesResponse);
+          // if (request.entries.length > 0) {
+          //   logger.debug(`${this._state.currentTerm}, ${request.term}, ${(this._state.log[this._state.log.length - 1] || {}).index || 0}, ${request.prevLogIndex}`);
+          //   logger.debug(`${request.term < this._state.currentTerm}, ${((this._state.log[this._state.log.length - 1] || {}).index || 0) < request.prevLogIndex}`);
+          // }
+          // if (request.term >= this._state.currentTerm) {
+          //   if (request.term > this._state.currentTerm) {
+          //     logger.debug(`Changing leader: ${request.leaderId}`);
+          //   }
+          //   this._state.setLeader(request.term, request.leaderId);
+          // }
+          // if (request.term < this._state.currentTerm
+          //   || ((this._state.log[this._state.log.length - 1] || {}).index || 0)
+          //   < request.prevLogIndex) {
+          //   return res.json({
+          //     method: RPCMethod.APPEND_ENTRIES_RESPONSE,
+          //     term: this._state.currentTerm,
+          //     success: false,
+          //   } as RPCAppendEntriesResponse);
+          // }
+          // return Promise.all(request.entries)
+          //   .mapSeries((entry) => {
+          //     this._state.append(entry);
+          //     // if (entry.index <= request.leaderCommit) {
+          //     //   // commit
+          //     // }
+          //     // check if entries already exist in log
+          //     return options.store.apply(entry.data);
+          //   })
+          //   // .tap(() => {
+          //   //   if (request.leaderCommit > this.stateMachine.commitIndex
+          //   //     && request.entries.length > 0) {
+          //   //     this.stateMachine.commitIndex = Math
+          //   //       .min(request.leaderCommit, request.entries[request.entries.length - 1].index);
+          //   //   }
+          //   // })
+          //   // .tap(() => logger.debug('Entry appended'))
+          //   .tap(() => res.json({
+          //     method: RPCMethod.APPEND_ENTRIES_RESPONSE,
+          //     term: this._state.currentTerm,
+          //     success: true,
+          //   } as RPCAppendEntriesResponse));
+        case RPCMethod.REQUEST_VOTE_REQUEST:
+          // logger.debug(`Receive vote request from: ${request.candidateId}`);
+          return Promise.resolve(this._electionManager.processVote(request))
+            .catch(() => false)
+            .then((voteGranted) => {
+              const response: RPCRequestVoteResponse = {
+                method: RPCMethod.REQUEST_VOTE_RESPONSE,
+                term: this._state.currentTerm,
+                voteGranted,
+              };
+              return res.json(response);
+            });
         default:
           break;
       }
