@@ -3,10 +3,12 @@ import axios from 'axios';
 
 import logger from '../utils/log.util';
 import {
+  RPCAppendEntriesRequest,
   RPCMethod,
   RPCRequestVoteRequest,
   RPCRequestVoteResponse,
 } from '../utils/rpc.util';
+import { LogEntry } from './log';
 
 export type ReplicaOptions = {
   host: string,
@@ -52,6 +54,22 @@ export class Replica {
       lastLogTerm,
     };
     return this.RPCRequest<RPCRequestVoteResponse>(`http://${this.toString()}`, request);
+  };
+
+  public appendEntries = (term: number, leaderId: string,
+    prevLogIndex: number, prevLogTerm: number, log: LogEntry[], leaderCommit: number) => {
+    // const start = log.findIndex((e) => e.index === this._nextIndex);
+    // const entries = log.slice(start, log.length);
+    const request: RPCAppendEntriesRequest = {
+      method: RPCMethod.APPEND_ENTRIES_REQUEST,
+      term,
+      leaderId,
+      prevLogIndex,
+      prevLogTerm,
+      entries: [],
+      leaderCommit,
+    };
+    return this.RPCRequest<RPCAppendEntriesRequest>(`http://${this.toString()}`, request);
   };
 
   // public appendEntries = (term: number, leaderId: string, prevLogTerm: number,

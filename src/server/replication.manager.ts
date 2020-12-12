@@ -1,6 +1,7 @@
+import Promise from 'bluebird';
 import { EventEmitter } from 'events';
 
-import logger from '../utils/log.util';
+// import logger from '../utils/log.util';
 import { State } from './state';
 
 export type ReplicationManagerOptions = {
@@ -20,10 +21,8 @@ export class ReplicationManager extends EventEmitter {
   }
 
   public start = () => {
-    if (this._timer) {
-      clearTimeout(this._timer);
-    }
-    this._timer = setTimeout(() => this.heartbeat, this._timeout);
+    this.stop();
+    this._timer = setTimeout(() => this.heartbeat(), this._timeout);
   };
 
   public stop = () => {
@@ -33,9 +32,25 @@ export class ReplicationManager extends EventEmitter {
     }
   };
 
-  private heartbeat = () => {
-    // TODO
+  public heartbeat = () => {
+    const lastEntry = this._state.getLastLogEntry();
+    this.start();
+    return Promise.all(this._state.replicas)
+      .map((replica) => replica.appendEntries(this._state.currentTerm, this._state.host.toString(),
+        lastEntry.index, lastEntry.term, this._state.log, this._state.commitIndex));
   };
+
+  // public replicate = (message: string, clientId: string) => Promise.resolve();
+
+  // private heartbeat = () => {
+  //   const lastEntry: LogEntry = this._log[this._log.length - 1];
+  //   // logger.debug('Sending heartbeat');
+  //   this.startHeartbeatTimer();
+  //   return Promise.all(this._replicas)
+  //     .map((replica) => replica
+  //       .appendEntries(this._currentTerm, this._host, (lastEntry || {}).term || this._currentTerm,
+  //         this._commitIndex, this._log));
+  // };
 
   // public replicate = (message: string, clientId: string) => {
   //   this.startHeartbeatTimer();

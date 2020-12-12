@@ -18,6 +18,7 @@ export type StateOptions = {
 export class State extends EventEmitter {
   private _state: RaftState;
   private _host: Replica;
+  private _leader: string;
   // Persistent state on all servers
   private _currentTerm: number = 0;
   private _votedFor?: string;
@@ -32,13 +33,14 @@ export class State extends EventEmitter {
     super();
     this._state = RaftState.FOLLOWER;
     this._host = options.host;
+    this._leader = this._host.toString();
     // Persistent state on all servers
     ready.then(() => StateModel.findOne({ raw: true }))
       .catch(() => undefined)
-      .then((state: any) => state || {
+      .then((state: any) => state || StateModel.create({
         currentTerm: 0,
         votedFor: undefined,
-      })
+      }, { raw: true }))
       .then((state) => {
         this._currentTerm = state.currentTerm;
         this._votedFor = state.votedFor;
@@ -66,6 +68,14 @@ export class State extends EventEmitter {
     return this._host;
   }
 
+  public get leader() {
+    return this._leader;
+  }
+
+  public set leader(value: string) {
+    this._leader = value;
+  }
+
   public get currentTerm() {
     return this._currentTerm;
   }
@@ -74,24 +84,34 @@ export class State extends EventEmitter {
     return this._votedFor;
   }
 
-  public setLeader(currentTerm: number, votedFor: string) {
-    this._currentTerm = currentTerm;
-    this._votedFor = votedFor;
-    const state = {
-      currentTerm,
-      votedFor,
-    };
-    if (this._votedFor === undefined) {
-      return ready.then(() => StateModel.create(state));
+  public setCurrentTerm = (currentTerm: number) => {
+    if (currentTerm > this._currentTerm) {
+      this._currentTerm = currentTerm;
+      this._votedFor = undefined;
+      const state = {
+        currentTerm: this._currentTerm,
+        votedFor: null,
+      };
+      return ready.then(() => StateModel.update(state, { where: {} }));
     }
-    return ready.then(() => StateModel.update(state, { where: {} }));
+    return Promise.resolve();
+  };
+
+  public setVotedFor(votedFor: string | undefined) {
+    this._votedFor = votedFor;
+    return ready.then(() => StateModel.update({ votedFor }, { where: {} }));
   }
 
   public get log() {
     return this._log;
   }
 
-  public addLogEntry(entry: LogEntry) {
+  public getLastLogEntry = () => (this._log[this._log.length - 1] || {
+    term: 0,
+    index: 0,
+  } as LogEntry);
+
+  public addLogEntry = (entry: LogEntry) => {
     if (this._log.length > 0
       && this._log[this._log.length - 1].index >= entry.index) {
       const i = this._log.findIndex((e) => e.index === entry.index);
@@ -100,7 +120,7 @@ export class State extends EventEmitter {
     }
     this._log.push(entry);
     return ready.then(() => LogModel.create(entry));
-  }
+  };
 
   public get commitIndex() {
     return this._commitIndex;

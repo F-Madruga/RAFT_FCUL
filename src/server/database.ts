@@ -12,6 +12,7 @@ export const Client = new Sequelize({
   dialect: 'sqlite',
   storage: argv.database || process.env.DATABASE_FILE
     || `raft_${argv.host || process.env.HOST || 'database'}.db`,
+  logging: false,
 });
 
 export const Log = Client.define('Log', {
@@ -57,7 +58,7 @@ export const State = Client.define('State', {
   },
   votedFor: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
 }, {
   tableName: 'state',
