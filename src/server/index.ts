@@ -1,10 +1,13 @@
+import Promise from 'bluebird';
 import yargs from 'yargs';
 import { Server as WebSocketServer } from 'ws';
 
 import load from '../utils/env.util';
+import logger from '../utils/log.util';
 import { RaftServer } from './server';
 import { Store } from './store';
 
+Promise.config({ cancellation: true });
 const { argv } = yargs(process.argv.slice(2)).options({
   config: { type: 'string', alias: 'c' },
   host: { type: 'string', alias: 'H' },
@@ -34,14 +37,15 @@ const server = new RaftServer({
   store: new Store(),
 });
 
-const control = new WebSocketServer({
-  port: parseInt(`${argv.controlPort || ''}` || process.env.CONTROL_PORT || '8082', 10),
-});
-control.on('connection', (ws) => ws.on('open', () => {
+const controlPort = parseInt(`${argv.controlPort || ''}` || process.env.CONTROL_PORT || '8082', 10);
+const controlServer = new WebSocketServer({ port: controlPort },
+  () => logger.info(`Listening for control connections on port ${controlPort}`));
+controlServer.on('connection', (ws) => {
+  const socket = ws;
   const listener = (state: string) => ws.send(state);
   server.addListener('stateChanged', listener);
-  ws.on('close', () => server.removeListener('stateChanged', listener));
-  ws.on('error', () => server.removeListener('stateChanged', listener));
-}));
+  socket.onclose = () => server.removeListener('stateChanged', listener);
+  socket.onerror = () => server.removeListener('stateChanged', listener);
+});
 
 process.addListener('SIGTERM', () => server.close());
