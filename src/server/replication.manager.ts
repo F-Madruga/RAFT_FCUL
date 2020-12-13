@@ -1,8 +1,12 @@
 import Promise from 'bluebird';
 import { EventEmitter } from 'events';
+import {
+  RPCAppendEntriesRequest, RPCCommandRequest, RPCMethod, RPCAppendEntriesResponse,
+} from '../utils/rpc.util';
+import { LogEntry } from './log';
 
 // import logger from '../utils/log.util';
-import { State } from './state';
+import { State, RaftState } from './state';
 
 export type ReplicationManagerOptions = {
   state: State,
@@ -38,6 +42,45 @@ export class ReplicationManager extends EventEmitter {
     return Promise.all(this._state.replicas)
       .map((replica) => replica.appendEntries(this._state.currentTerm, this._state.host.toString(),
         lastEntry.index, lastEntry.term, this._state.log, this._state.commitIndex));
+  };
+
+  public replicate = (request: RPCCommandRequest) => {
+    // Enviar os AppendEntriesRequest e mandar fazer commit localmente
+    const lastEntry = this._state.getLastLogEntry();
+    const entry: LogEntry = {
+      timestamp: new Date().toISOString(),
+      term: this._state.currentTerm,
+      index: lastEntry.index + 1,
+      data: request.message,
+      clientId: // !,
+      operationId: // !,
+      leaderId: this._state.host.toString()
+    };
+    return Promise.some(
+      this._state.replicas.map((replica) => replica
+        .appendEntries(this._state.currentTerm, this._state.host.toString(),
+          lastEntry.index, lastEntry.term, this._state.log, this._state.commitIndex)),
+      this._state.replicas.length / 2,
+    );
+  };
+
+  public append = (request: RPCAppendEntriesRequest) => {
+    if (request.term < this._state.currentTerm) {
+      return {
+        method: RPCMethod.APPEND_ENTRIES_RESPONSE,
+        term: this._state.currentTerm,
+        success: false,
+      } as RPCAppendEntriesResponse;
+    }
+    this._state.state = RaftState.FOLLOWER;
+    this._state.setCurrentTerm(request.term);
+    this._state.leader = request.leaderId;
+    request.entries.map((entry) => this._state.addLogEntry(entry));
+    return {
+      method: RPCMethod.APPEND_ENTRIES_RESPONSE,
+      term: this._state.currentTerm,
+      success: true,
+    } as RPCAppendEntriesResponse;
   };
 
   // public replicate = (message: string, clientId: string) => Promise.resolve();
