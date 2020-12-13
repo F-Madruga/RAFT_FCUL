@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import { Replica } from './replica';
 import { LogEntry } from './log';
 import { ready, State as StateModel, Log as LogModel } from './database';
+import logger from '../utils/log.util';
 
 export enum RaftState {
   LEADER = 'LEADER',
@@ -60,6 +61,9 @@ export class State extends EventEmitter {
   }
 
   public set state(value: RaftState) {
+    if (value !== this._state) {
+      logger.debug(`Changing state: ${this.state}`);
+    }
     this._state = value;
     this.emit('stateChanged', this._state);
   }
