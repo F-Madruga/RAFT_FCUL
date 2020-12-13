@@ -3,6 +3,7 @@ import yargs from 'yargs';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 
+import { nanoid } from 'nanoid';
 import load from '../utils/env.util';
 import logger from '../utils/log.util';
 import { RaftClient } from './client';
@@ -16,7 +17,7 @@ const { argv } = yargs(process.argv.slice(2)).options({
   parallel: { type: 'number', alias: 'P' },
   interval: { type: 'number', alias: 'I' },
 });
-load(argv.config || process.env.ENV_FILE || './config/.env-client');
+load(argv.config || process.env.ENV_FILE || '../config/.env-client');
 
 const servers = (argv.servers || process.env.SERVERS || 'localhost').split(',');
 const port = parseInt(`${argv.port || ''}` || process.env.PORT || '8080', 10);
@@ -145,7 +146,8 @@ async function* interactiveGenerator() {
 }
 async function* generator() {
   while (true) {
-    const request = JSON.stringify({ command: 'ping' });
+    // const request = JSON.stringify({ command: 'ping' });
+    const request = JSON.stringify({ command: 'put', key: nanoid(), value: new Date().toISOString() });
     logger.info(`Sending request: ${request}`);
     yield client.request(request)
       .tap(() => Promise.delay(requestInterval))

@@ -4,6 +4,7 @@ import { Server as WebSocketServer } from 'ws';
 
 import load from '../utils/env.util';
 import logger from '../utils/log.util';
+import { Event } from '../utils/constants.util';
 import { RaftServer } from './server';
 import { Store } from './store';
 
@@ -23,7 +24,7 @@ const { argv } = yargs(process.argv.slice(2)).options({
 load(argv.config || process.env.ENV_FILE || './config/.env-server');
 
 const server = new RaftServer({
-  host: argv.host || process.env.HOST || 'locahost',
+  host: argv.host || process.env.HOST || 'localhost',
   port: parseInt(`${argv.port || ''}` || process.env.PORT || '8081', 10),
   servers: (argv.servers || process.env.SERVERS || '').split(',').filter((s) => !!s),
   clientPort: parseInt(`${argv.clientPort || ''}` || process.env.CLIENT_PORT || '8080', 10),
@@ -43,9 +44,9 @@ const controlServer = new WebSocketServer({ port: controlPort },
 controlServer.on('connection', (ws) => {
   const socket = ws;
   const listener = (state: string) => ws.send(state);
-  server.addListener('stateChanged', listener);
-  socket.onclose = () => server.removeListener('stateChanged', listener);
-  socket.onerror = () => server.removeListener('stateChanged', listener);
+  server.addListener(Event.STATE_CHANGED, listener);
+  socket.onclose = () => server.removeListener(Event.STATE_CHANGED, listener);
+  socket.onerror = () => server.removeListener(Event.STATE_CHANGED, listener);
 });
 
 process.addListener('SIGTERM', () => server.close());

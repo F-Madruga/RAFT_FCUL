@@ -84,6 +84,7 @@ export const ready = Promise.race([
   Client.sync(),
   new Promise((resolve, reject) => setTimeout(() => reject(new Error('Timeout')), 5000)),
 ])
+  .then(() => ({ Log, State, Snapshot }))
   .tapCatch((e) => logger.error(`Error synchronizing database: ${e.message}`))
   .catch(() => process.exit(1));
 
