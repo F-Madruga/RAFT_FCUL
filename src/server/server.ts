@@ -189,7 +189,6 @@ export class RaftServer extends EventEmitter {
           //     success: true,
           //   } as RPCAppendEntriesResponse));
         case RPCMethod.REQUEST_VOTE_REQUEST:
-          // logger.debug(`Receive vote request from: ${request.candidateId}`);
           return Promise.resolve(this._electionManager.processVote(request))
             .catch(() => false)
             .then((voteGranted) => {

@@ -106,26 +106,29 @@ services:
       - HEARTBEAT_TIMEOUT=50
       - DATABASE_FILE=Raft_DB.db
 
-  # client:
-  #   build:
-  #     context: .
-  #     dockerfile: ./docker/Dockerfile.client
-  #   image: raft_fcul_client
-  #   stdin_open: true
-  #   tty: true
-  #   networks:
-  #     - raft_fcul_network
-  #   environment:
-  #     - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
-  #     - LOG_LEVEL=debug
-  #     - PORT=8080
-  #     - REQUEST_INTERVAL=10000
-  #   depends_on:
-  #     - server1
-  #     - server2
-  #     - server3
-  #     - server4
-  #     - server5
+  client:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.client
+    image: raft_fcul_client
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
+      - LOG_LEVEL=debug
+      - PORT=8080
+      - WEBSOCKET=false
+      - INTERACTIVE=false
+      - PARALLEL_REQUESTS=1
+      - REQUEST_INTERVAL=0
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
 
 networks:
   raft_fcul_network:
