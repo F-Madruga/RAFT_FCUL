@@ -4,9 +4,12 @@ import { EventEmitter } from 'events';
 import logger from '../utils/log.util';
 import { RPCRequestVoteRequest } from '../utils/rpc.util';
 import { State, RaftState } from './state';
+import { Replica } from './replica';
 
 export type ElectionManagerOptions = {
   state: State,
+  host: Replica,
+  replicas: Replica[],
   minimumElectionTimeout?: number,
   maximumElectionTimeout?: number,
 };
@@ -14,12 +17,16 @@ export type ElectionManagerOptions = {
 export class ElectionManager extends EventEmitter {
   private _timer?: NodeJS.Timeout;
   private _state: State;
+  private _host: Replica;
+  private _replicas: Replica[];
   private _minimumTimeout: number;
   private _maximumTimeout: number;
 
   constructor(options: ElectionManagerOptions) {
     super();
     this._state = options.state;
+    this._host = options.host;
+    this._replicas = options.replicas;
     this._minimumTimeout = options.minimumElectionTimeout || 150;
     this._maximumTimeout = options.maximumElectionTimeout || 300;
   }
@@ -42,12 +49,11 @@ export class ElectionManager extends EventEmitter {
     logger.debug('Election started');
     this._state.state = RaftState.CANDIDATE;
     this._state.setCurrentTerm(this._state.currentTerm + 1);
-    this._state.setVotedFor(this._state.host.toString());
-    const lastEntry = this._state.getLastLogEntry();
+    this._state.setVotedFor(this._host.toString());
     const term = this._state.currentTerm;
     const result = Promise.some(
-      this._state.replicas.map((replica) => replica
-        .requestVote(term, this._state.host.toString(), lastEntry.index, lastEntry.term)
+      this._replicas.map((replica) => replica
+        .requestVote(this._host.toString())
         .tap((response) => {
           if (response.term > term) {
             this._state.state = RaftState.FOLLOWER;
@@ -60,12 +66,13 @@ export class ElectionManager extends EventEmitter {
           return Promise.resolve();
         })
         .tapCatch(() => logger.debug(`Replica ${replica.toString()} responded with no vote`))),
-      this._state.replicas.length / 2,
+      this._replicas.length / 2,
     )
       .then(() => {
-        logger.info('Elected leader');
+        logger.info(`Elected leader on term ${this._state.currentTerm}`);
         this._state.state = RaftState.LEADER;
-        this._state.leader = this._state.host.toString();
+        this._state.leader = this._host.host;
+        this._replicas.map((replica) => replica.init());
       })
       .catch(() => logger.debug('Not enough votes'));
     return result;

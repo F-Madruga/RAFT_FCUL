@@ -31,7 +31,7 @@ export class Store implements IRaftStore {
   };
 
   public apply = (message: string) => {
-    logger.debug(`Applying message: ${message}`);
+    // logger.debug(`Applying message: ${message}`);
     let response;
     try {
       const request = JSON.parse(message);
@@ -73,7 +73,7 @@ export class Store implements IRaftStore {
     } catch (e) {
       response = { command: 'error', message: 'Unprocessable request.' };
     }
-    logger.debug(`Sending response: ${JSON.stringify(response)}`);
+    // logger.debug(`Sending response: ${JSON.stringify(response)}`);
     return JSON.stringify(response);
   };
 
