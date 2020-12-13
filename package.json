@@ -19,8 +19,14 @@
     "docker:build:client": "docker build -t raft_fcul_client -f docker/Dockerfile.client .",
     "docker:run:server": "docker run --expose=8080,8081,8082 -p 8080:8080/tcp -p 8081:8081/tcp -p 8082:8082/tcp raft_fcul_server",
     "docker:run:client": "docker run raft_fcul_client",
-    "docker:compose": "docker-compose down --rmi all && docker-compose up",
-    "docker:clean": "docker-compose down --rmi all",
+    "docker:compose:up": "docker-compose up",
+    "docker:compose:down": "docker-compose down --rmi all",
+    "docker:prune": "docker image prune -f",
+    "docker:clean": "npm run docker:compose:down --silent && npm run docker:prune --silent",
+    "docker:rebuild": "npm run docker:clean --silent && npm run docker:compose:up --silent",
+    "docker:list": "docker-compose ps -a",
+    "docker:stop": "docker stop",
+    "docker:restart": "docker start",
     "lint": "eslint --ext .js,.jsx,.ts,.tsx src/**",
     "typecheck": "tsc -p ./tsconfig.json 2>&1"
   },
@@ -34,6 +40,7 @@
     "node": ">= 12.0.0"
   },
   "dependencies": {
+    "async-mutex": "^0.2.6",
     "axios": "^0.21.0",
     "blessed": "^0.1.81",
     "bluebird": "^3.7.2",

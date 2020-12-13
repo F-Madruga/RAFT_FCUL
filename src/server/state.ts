@@ -1,9 +1,10 @@
 import { EventEmitter } from 'events';
 
-import { Replica } from './replica';
+import logger from '../utils/log.util';
+import { Event } from '../utils/constants.util';
 import { LogEntry } from './log';
 import { ready, State as StateModel, Log as LogModel } from './database';
-import logger from '../utils/log.util';
+import { IRaftStore } from './store';
 
 export enum RaftState {
   LEADER = 'LEADER',
@@ -12,13 +13,15 @@ export enum RaftState {
 }
 
 export type StateOptions = {
-  host: Replica,
-  replicas: Replica[],
+  // host: Replica,
+  // replicas: Replica[],
+  state?: RaftState,
+  leader?: string,
+  store: IRaftStore,
 };
 
 export class State extends EventEmitter {
   private _state: RaftState;
-  private _host: Replica;
   private _leader: string;
   // Persistent state on all servers
   private _currentTerm: number = 0;
@@ -28,13 +31,13 @@ export class State extends EventEmitter {
   private _commitIndex: number;
   private _lastApplied: number;
   // Volatile state on leaders
-  private _replicas: Replica[];
+  // private _replicas: Replica[];
+  private _store: IRaftStore;
 
   constructor(options: StateOptions) {
     super();
-    this._state = RaftState.FOLLOWER;
-    this._host = options.host;
-    this._leader = this._host.toString();
+    this._state = options.state || RaftState.FOLLOWER;
+    this._leader = options.leader || '';
     // Persistent state on all servers
     ready.then(() => StateModel.findOne({ raw: true }))
       .catch(() => undefined)
@@ -53,7 +56,7 @@ export class State extends EventEmitter {
     this._commitIndex = 0;
     this._lastApplied = 0;
     // Volatile state on leaders
-    this._replicas = options.replicas;
+    this._store = options.store;
   }
 
   public get state() {
@@ -62,14 +65,10 @@ export class State extends EventEmitter {
 
   public set state(value: RaftState) {
     if (value !== this._state) {
-      logger.debug(`Changing state: ${this.state}`);
+      logger.debug(`Changing state: ${value}`);
     }
     this._state = value;
-    this.emit('stateChanged', this._state);
-  }
-
-  public get host() {
-    return this._host;
+    this.emit(Event.STATE_CHANGED, this._state);
   }
 
   public get leader() {
@@ -115,15 +114,19 @@ export class State extends EventEmitter {
     index: 0,
   } as LogEntry);
 
+  public getLogEntry = (index: number) => this._log.find((entry) => entry.index === index);
+
   public addLogEntry = (entry: LogEntry) => {
     if (this._log.length > 0
       && this._log[this._log.length - 1].index >= entry.index) {
       const i = this._log.findIndex((e) => e.index === entry.index);
       this._log[i] = entry;
-      return ready.then(() => LogModel.update(entry, { where: { index: entry.index } }));
+      return ready.then(() => LogModel.update(entry, { where: { index: entry.index } }))
+        .then(() => undefined);
     }
     this._log.push(entry);
-    return ready.then(() => LogModel.create(entry));
+    return ready.then(() => LogModel.create(entry))
+      .then(() => undefined);
   };
 
   public get commitIndex() {
@@ -142,9 +145,11 @@ export class State extends EventEmitter {
     this._lastApplied = value;
   }
 
-  public get replicas() {
-    return this._replicas;
-  }
-}
+  public isRead = (message: string) => this._store.isRead(message);
 
-// private _toCommit: { resolve: null | ((result?: any) => void) }[] = [];
+  public apply = (message: string) => {
+    const response = this._store.apply(message);
+    this._lastApplied += 1;
+    return response;
+  };
+}

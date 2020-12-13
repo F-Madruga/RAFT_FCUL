@@ -95,7 +95,7 @@ export class RaftClient {
       case RPCMethod.LEADER_RESPONSE: {
         this.leader = response.message;
         logger.debug(`Changing leader: ${this.leader}`);
-        this.connect();
+        // this.connect(); // ! fix me
         return this.request(request);
       }
       case RPCMethod.COMMAND_RESPONSE: {
