@@ -3,5 +3,6 @@ export enum Defaults {
 }
 
 export enum Event {
-  ELECTED = 'elected',
+  STATE_CHANGED = 'stateChanged',
+  MATCH_INDEX_CHANGED = 'matchIndexChanged',
 }
