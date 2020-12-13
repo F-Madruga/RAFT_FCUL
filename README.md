@@ -106,12 +106,12 @@ networks:
 
 ## Useful commands
 
-| Command                              | Behavior                                                              | Observations                                                                                 |
-| :----------------------------------- | :-------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
-| `npm run docker:compose:down`        | Delete all raft project containers and images                         | Doesn't include builder images                                                               |
-| `npm run docker:prune`               | Delete **ALL** dangling images **(use with caution)**                 | Include all dangling images on the machine even if it's not from raft **(use with caution)** |
-| `npm run docker:clean`               | Runs docker:compose:down and then docker:prune **(use with caution)** | Same observation as npm run docker:prune                                                     |
-| `npm run docker:rebuild`             | Runs docker:clean and then docker:compose:up **(use with caution)**   | Same observation as npm run docker:prune                                                     |
-| `npm run docker:list`                | List all raft services                                                |                                                                                              |
-| `npm run docker:stop --{service}`    | Stop a service                                                        | Where "{service}" is the name of the service.                                                |
-| `npm run docker:restart --{service}` | Start a stopped service                                               | Where "{service}" is the name of the service.                                                |
+| Command                               | Behavior                                                              | Observations                                                                                 |
+| :------------------------------------ | :-------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
+| `npm run docker:compose:down`         | Delete all raft project containers and images                         | Doesn't include builder images                                                               |
+| `npm run docker:prune`                | Delete **ALL** dangling images **(use with caution)**                 | Include all dangling images on the machine even if it's not from raft **(use with caution)** |
+| `npm run docker:clean`                | Runs docker:compose:down and then docker:prune **(use with caution)** | Same observation as npm run docker:prune                                                     |
+| `npm run docker:rebuild`              | Runs docker:clean and then docker:compose:up **(use with caution)**   | Same observation as npm run docker:prune                                                     |
+| `npm run docker:list`                 | List all raft services                                                |                                                                                              |
+| `npm run docker:stop -- {service}`    | Stop a service                                                        | Where "{service}" is the name of the service.                                                |
+| `npm run docker:restart -- {service}` | Start a stopped service                                               | Where "{service}" is the name of the service.                                                |
