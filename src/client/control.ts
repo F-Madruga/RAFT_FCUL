@@ -1,6 +1,7 @@
 import blessed from 'blessed';
 import chalk from 'chalk';
 import WebSocket from 'ws';
+import yargs from 'yargs';
 
 const scr = blessed.screen({ smartCSR: true });
 const width = 50;
@@ -12,7 +13,7 @@ scr.render();
 const set = (servers: { [host: string]: string }) => {
   box.height = Object.keys(servers).length + 2;
   box.setContent(Object.entries(servers)
-    .map(([host, state]) => ` ${host}: ${state.padStart(width - host.length + 4, ' ')}`)
+    .map(([host, state]) => ` ${host} ${state.padStart(width - host.length + 5, ' ')}`)
     .join('\n'));
   scr.render();
 };
@@ -24,7 +25,9 @@ const State = {
   UNKNOWN: chalk.red('UNKNOWN'),
 };
 const state: { [host: string]: string } = {};
-['localhost:8082'].map((server) => {
+(yargs(process.argv.slice(2)).option('servers', { type: 'string', alias: 's' }).argv.servers
+  || process.env.servers
+  || 'localhost:8082').split(',').map((server) => {
   let ws: WebSocket;
   const connect = () => {
     state[server] = State.DISCONNECTED;
