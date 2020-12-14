@@ -1,6 +1,18 @@
 version: "3.3"
 
 services:
+  database1:
+    image: postgres:13.1-alpine
+    container_name: raft_fcul_database_1
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      POSTGRES_DB: raft_fcul
+      POSTGRES_USER: user_with_big_pp
+      POSTGRES_PASSWORD: send_bobs
+
   server1:
     build:
       context: .
@@ -12,6 +24,8 @@ services:
     tty: true
     networks:
       - raft_fcul_network
+    depends_on:
+      - database1
     environment:
       - SERVERS=raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
       - HOST=raft_fcul_server_1
@@ -21,7 +35,19 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - DATABASE_FILE=Raft_DB.db
+      - DATABASE_URL=postgres://user_with_big_pp:send_bobs@raft_fcul_database_1:5432/raft_fcul
+
+  database2:
+    image: postgres:13.1-alpine
+    container_name: raft_fcul_database_2
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      POSTGRES_DB: raft_fcul
+      POSTGRES_USER: user_with_big_pp
+      POSTGRES_PASSWORD: send_bobs
 
   server2:
     build:
@@ -34,6 +60,8 @@ services:
     tty: true
     networks:
       - raft_fcul_network
+    depends_on:
+      - database2
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
       - HOST=raft_fcul_server_2
@@ -43,7 +71,19 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - DATABASE_FILE=Raft_DB.db
+      - DATABASE_URL=postgres://user_with_big_pp:send_bobs@raft_fcul_database_2:5432/raft_fcul
+
+  database3:
+    image: postgres:13.1-alpine
+    container_name: raft_fcul_database_3
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      POSTGRES_DB: raft_fcul
+      POSTGRES_USER: user_with_big_pp
+      POSTGRES_PASSWORD: send_bobs
 
   server3:
     build:
@@ -56,6 +96,8 @@ services:
     tty: true
     networks:
       - raft_fcul_network
+    depends_on:
+      - database3
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_4,raft_fcul_server_5
       - HOST=raft_fcul_server_3
@@ -65,7 +107,19 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - DATABASE_FILE=Raft_DB.db
+      - DATABASE_URL=postgres://user_with_big_pp:send_bobs@raft_fcul_database_3:5432/raft_fcul
+
+  database4:
+    image: postgres:13.1-alpine
+    container_name: raft_fcul_database_4
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      POSTGRES_DB: raft_fcul
+      POSTGRES_USER: user_with_big_pp
+      POSTGRES_PASSWORD: send_bobs
 
   server4:
     build:
@@ -78,6 +132,8 @@ services:
     tty: true
     networks:
       - raft_fcul_network
+    depends_on:
+      - database4
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_5
       - HOST=raft_fcul_server_4
@@ -87,7 +143,19 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - DATABASE_FILE=Raft_DB.db
+      - DATABASE_URL=postgres://user_with_big_pp:send_bobs@raft_fcul_database_4:5432/raft_fcul
+
+  database5:
+    image: postgres:13.1-alpine
+    container_name: raft_fcul_database_5
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      POSTGRES_DB: raft_fcul
+      POSTGRES_USER: user_with_big_pp
+      POSTGRES_PASSWORD: send_bobs
 
   server5:
     build:
@@ -100,6 +168,8 @@ services:
     tty: true
     networks:
       - raft_fcul_network
+    depends_on:
+      - database5
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4
       - HOST=raft_fcul_server_5
@@ -109,7 +179,7 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - DATABASE_FILE=Raft_DB.db
+      - DATABASE_URL=postgres://user_with_big_pp:send_bobs@raft_fcul_database_5:5432/raft_fcul
 
   client:
     build:
@@ -122,7 +192,8 @@ services:
       - raft_fcul_network
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
-      - LOG_LEVEL=debug #silent
+      # - LOG_LEVEL=debug
+      - LOG_LEVEL=silent
       - PORT=8080
       - WEBSOCKET=false
       - INTERACTIVE=false

@@ -170,35 +170,4 @@ export class Replica extends EventEmitter {
         // logger.debug(`Replica ${this._host} not responding to AppendEntriesRequest`);
       });
   };
-
-  // public appendEntries = (term: number, leaderId: string, prevLogTerm: number,
-  //   leaderCommit: number, log: LogEntry[],
-  //   lastLogIndex: number = this.nextIndex - 1): Promise<RPCAppendEntriesResponse> => {
-  //   this.nextIndex = lastLogIndex + 1;
-  //   // logger.debug(`Sending entries to ${this._host}: ${this._nextIndex}, ${this._matchIndex}`);
-  //   const request: RPCAppendEntriesRequest = {
-  //     method: RPCMethod.APPEND_ENTRIES_REQUEST,
-  //     term,
-  //     leaderId,
-  //     entries: log.slice((log[this.nextIndex - 1] || {}).index || 0, log.length),
-  //     prevLogIndex: (log[this.nextIndex - 1] || {}).index || 0,
-  //     prevLogTerm,
-  //     leaderCommit,
-  //   };
-  //   return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this._host}:${this._port}`, request)
-  //     .then((response) => {
-  //       if (this.nextIndex <= 0) {
-  //         this.nextIndex = this.matchIndex + 1;
-  //         return response;
-  //       }
-  //       if (response.success === false) {
-  //         this.nextIndex -= 1;
-  //         logger.debug('Resending request');
-  //         return this.appendEntries(term, leaderId, prevLogTerm, leaderCommit, log);
-  //       }
-  //       this.matchIndex += request.entries.length;
-  //       this.nextIndex = this.matchIndex + 1;
-  //       return response;
-  //     });
-  // };
 }

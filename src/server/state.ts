@@ -33,13 +33,14 @@ export class State extends EventEmitter {
   // Volatile state on leaders
   // private _replicas: Replica[];
   private _store: IRaftStore;
+  private _ready: Promise<any>;
 
   constructor(options: StateOptions) {
     super();
     this._state = options.state || RaftState.FOLLOWER;
     this._leader = options.leader || '';
     // Persistent state on all servers
-    ready.then(() => StateModel.findOne({ raw: true }))
+    this._ready = ready.then(() => StateModel.findOne({ raw: true }))
       .catch(() => undefined)
       .then((state: any) => state || StateModel.create({
         currentTerm: 0,
@@ -51,7 +52,10 @@ export class State extends EventEmitter {
       })
       .then(() => LogModel.findAll({ raw: true }))
       .catch(() => undefined)
-      .then((logs) => { this._log = logs as any[]; });
+      .then((logs) => { this._log = logs as any[]; })
+      .tap(() => logger.debug(`LOG_LENGTH = ${this._log.length}`))
+      .tapCatch((e) => logger.error(`Error preparing State: ${e.message}`))
+      .catch(() => process.exit(1));
     // Volatile state on all servers
     this._commitIndex = 0;
     this._lastApplied = 0;
@@ -149,6 +153,10 @@ export class State extends EventEmitter {
 
   public set lastApplied(value: number) {
     this._lastApplied = value;
+  }
+
+  public get ready() {
+    return this._ready;
   }
 
   public isRead = (message: string) => this._store.isRead(message);
