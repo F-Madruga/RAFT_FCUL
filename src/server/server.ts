@@ -80,32 +80,35 @@ export class RaftServer extends EventEmitter {
       host: this._host,
       replicas: this._replicas,
     });
-    this._state.on(Event.STATE_CHANGED, (state: RaftState) => {
-      // logger.debug(`Changing state: ${state}`);
-      this.emit(Event.STATE_CHANGED, state);
-      switch (state) {
-        case RaftState.FOLLOWER:
-          this._electionManager.start();
-          this._replicationManager.stop();
-          break;
-        case RaftState.CANDIDATE:
-          this._electionManager.start();
-          this._replicationManager.stop();
-          break;
-        case RaftState.LEADER:
-          this._electionManager.stop();
-          this._replicationManager.start();
-          break;
-        default:
-      }
+    this._state.ready.then(() => {
+      this._state.on(Event.STATE_CHANGED, (state: RaftState) => {
+        // logger.debug(`Changing state: ${state}`);
+        this.emit(Event.STATE_CHANGED, state);
+        switch (state) {
+          case RaftState.FOLLOWER:
+            this._electionManager.start();
+            this._replicationManager.stop();
+            break;
+          case RaftState.CANDIDATE:
+            this._electionManager.start();
+            this._replicationManager.stop();
+            break;
+          case RaftState.LEADER:
+            this._electionManager.stop();
+            this._replicationManager.start();
+            break;
+          default:
+        }
+      });
+      this._state.state = RaftState.FOLLOWER;
     });
-    this._state.state = RaftState.FOLLOWER;
     this._commandServer = express().use(bodyParser.json()).use(Router().post('/', (req, res) => {
       // if not leader, send leader info
+      logger.debug(`LEADER_INFO = ${this._state.leader || this._host.host}:${this._clientPort}`);
       if (this._state.state !== RaftState.LEADER) {
         const response: RPCLeaderResponse = {
           method: RPCMethod.LEADER_RESPONSE,
-          message: `${this._state.leader}:${this._clientPort}` || `${this._host.host}:${this._clientPort}`,
+          message: `${this._state.leader || this._host.host}:${this._clientPort}`,
         };
         return res.json(response);
       }
@@ -144,7 +147,8 @@ export class RaftServer extends EventEmitter {
       const request: RPCServerRequest = req.body;
       switch (request.method) {
         case RPCMethod.APPEND_ENTRIES_REQUEST:
-          return Promise.try(() => this._replicationManager.append(request))
+          return this._state.ready
+            .then(() => this._replicationManager.append(request))
             .catch(() => false)
             .then((success) => {
               const response: RPCAppendEntriesResponse = {
@@ -155,7 +159,8 @@ export class RaftServer extends EventEmitter {
               return res.json(response);
             });
         case RPCMethod.REQUEST_VOTE_REQUEST:
-          return Promise.resolve(this._electionManager.processVote(request))
+          return this._state.ready
+            .then(() => this._electionManager.processVote(request))
             .catch(() => false)
             .then((voteGranted) => {
               const response: RPCRequestVoteResponse = {

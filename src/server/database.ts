@@ -6,12 +6,16 @@ import logger from '../utils/log.util';
 
 const { argv } = yargs(process.argv.slice(2)).options({
   host: { type: 'string', alias: 'H' },
-  database: { type: 'string', alias: 'd' },
+  databaseUrl: { type: 'string', alias: 'd' },
+  databaseFile: { type: 'string', alias: 'D' },
 });
-export const Client = new Sequelize({
-  dialect: 'sqlite',
-  storage: argv.database || process.env.DATABASE_FILE
-    || `raft_${argv.host || process.env.HOST || 'database'}.db`,
+const url = argv.databaseUrl || process.env.DATABASE_URL
+  || `sqlite://${argv.database || process.env.DATABASE_FILE
+    || `raft_${argv.host || process.env.HOST || 'database'}.db`}`;
+export const Client = new Sequelize(url, {
+  // dialect: 'sqlite',
+  // storage: argv.database || process.env.DATABASE_FILE
+  //   || `raft_${argv.host || process.env.HOST || 'database'}.db`,
   logging: false,
 });
 
