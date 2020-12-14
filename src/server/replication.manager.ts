@@ -37,13 +37,13 @@ export class ReplicationManager extends EventEmitter {
       while (this._replicas.filter((r) => r.matchIndex > this._state.commitIndex).length
         >= this._replicas.length / 2) {
         this._state.commitIndex += 1;
+        logger.debug(`incremented commitIndex to ${this._state.commitIndex}`);
       }
       const { lastApplied } = this._state;
-      if (this._state.commitIndex > lastApplied) {
-        if (this._toCommit[lastApplied]) {
-          this._toCommit[lastApplied + 1]();
-          delete this._toCommit[lastApplied];
-        }
+      if (this._state.commitIndex > lastApplied && this._toCommit[lastApplied + 1]) {
+        logger.debug(`committing ${lastApplied + 1}`);
+        this._toCommit[lastApplied + 1]();
+        delete this._toCommit[lastApplied + 1];
       }
     }));
     this._mutex = new Mutex();
@@ -83,8 +83,8 @@ export class ReplicationManager extends EventEmitter {
         return false;
       }
       this._state.state = RaftState.FOLLOWER;
-      this._state.setCurrentTerm(request.term);
       this._state.leader = request.leaderId;
+      this._state.setCurrentTerm(request.term);
       const previousEntry = this._state.getLogEntry(request.prevLogIndex);
       if (request.prevLogIndex !== 0
         && ((previousEntry || {}).term || this._state.currentTerm) !== request.prevLogTerm) {
@@ -94,16 +94,18 @@ export class ReplicationManager extends EventEmitter {
       if (request.leaderCommit > this._state.commitIndex) {
         this._state.commitIndex = Math
           .min(request.leaderCommit, (lastNewEntry || {}).index || request.leaderCommit);
+        logger.debug(`Update commit index = ${this._state.commitIndex}`);
       }
       // logger.debug(`Leader = ${this._state.leader}, VOTED_FOR = ${this._state.votedFor}, TERM = ${this._state.currentTerm}`);
-      if (request.entries.length > 0) {
-        logger.debug(this._state.log);
-      }
       return Promise.all(request.entries)
         .map((entry) => this._state.addLogEntry(entry))
+        .then(() => {
+          if (request.entries.length > 0) {
+            logger.debug(this._state.log);
+          }
+        })
         .then(() => Promise.all(request.entries)
-          .map((entry) => (this._state.commitIndex >= entry.index
-            ? this._state.apply(entry.data) : undefined)))
+          .map((entry) => this._state.commitIndex >= entry.index && this._state.apply(entry.data)))
         .then(() => true);
     })
     .tap(() => this._mutex.release());

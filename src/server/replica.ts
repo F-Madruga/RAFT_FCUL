@@ -11,7 +11,8 @@ import {
   RPCRequestVoteRequest,
   RPCRequestVoteResponse,
 } from '../utils/rpc.util';
-import { State } from './state';
+import { RaftState, State } from './state';
+import { LogEntry } from './log';
 
 export type ReplicaOptions = {
   host: string,
@@ -104,16 +105,24 @@ export class Replica extends EventEmitter {
       return Promise.resolve();
     }
     this._sending = true;
-    const lastEntry = this._state.getLastLogEntry();
     const start = this._state.log.findIndex((e) => e.index === this._nextIndex);
-    const stop = this._state.log.findIndex((e) => e.index === lastEntry.index);
-    const entries = this._state.log.slice(start, stop + 1);
+    // const entries = start !== -1 ? this._state.log.slice(start) : [];
+    let entries: LogEntry[] = [];
+    if (start !== -1) {
+      entries = this._state.log.slice(start);
+      // logger.debug(entries);
+    }
+    // logger.debug(`NEXT_INDEX = ${this._nextIndex}, LAST_ENTRY_INDEX = ${lastEntry.index}, START = ${start}`);
+    const previousEntry = this._state.getLogEntry(this._matchIndex) || {
+      term: 0,
+      index: 0,
+    } as LogEntry;
     const request: RPCAppendEntriesRequest = {
       method: RPCMethod.APPEND_ENTRIES_REQUEST,
       term: this._state.currentTerm,
       leaderId: this._state.leader,
-      prevLogIndex: lastEntry.index,
-      prevLogTerm: lastEntry.term,
+      prevLogIndex: previousEntry.index,
+      prevLogTerm: previousEntry.term,
       entries,
       leaderCommit: this._state.commitIndex,
     };
@@ -125,24 +134,29 @@ export class Replica extends EventEmitter {
         // logger.debug(`Replica ${this.toString()} response: ${JSON.stringify(response, null, 2)}`);
         if (response.term <= this._state.currentTerm) {
           if (response.success) {
-            this.matchIndex = lastEntry.index;
-            this._nextIndex = lastEntry.index + 1;
-            return Promise.resolve();
+            if (entries.length > 0) {
+              this._nextIndex += entries.length;
+              this.matchIndex = this._matchIndex + entries.length;
+            }
+            return response;
           }
           if (this._nextIndex > 1) {
-            logger.debug(`NEXT_INDEX = ${this._nextIndex}`);
+            logger.debug(`Trying to send entries again to replica ${this.toString()} beginning on index ${this._nextIndex}`);
             this._nextIndex -= 1;
             return this.appendEntries();
           }
           return Promise.reject(new Error());
         }
+        // this._state.state = RaftState.FOLLOWER;
+        // this._state.setCurrentTerm(response.term);
         return response;
       })
       .then((response) => {
         this._sending = false;
-        const currentLastEntry = this._state.getLastLogEntry();
-        if (request.prevLogIndex !== currentLastEntry.index) {
-          logger.debug(`REQUEST_PREV_LOG_INDEX = ${request.prevLogIndex}, LAST_ENTRY_INDEX = ${currentLastEntry.index}`);
+        const lastEntry = this._state.getLastLogEntry();
+        if (this._matchIndex < lastEntry.index) {
+          // REQUEST_PREV_LOG_INDEX = 0, LAST_ENTRY_INDEX = 1
+          // logger.debug(`MATCH_INDEX = ${this._matchIndex}, LAST_ENTRY_INDEX = ${lastEntry.index}, REPLICA = ${this.toString()}`);
           return this.appendEntries();
         }
         return response;
