@@ -63,9 +63,10 @@ export class ElectionManager extends EventEmitter {
           if (!response.voteGranted || response.term !== term) {
             return Promise.reject(new Error());
           }
+          logger.debug(`Replica ${replica.host} voted YES on term ${term}`);
           return Promise.resolve();
         })
-        .tapCatch(() => logger.debug(`Replica ${replica.toString()} responded with no vote`))),
+        .tapCatch(() => logger.debug(`Replica ${replica.host} voted NO on term ${term}`))),
       this._replicas.length / 2,
     )
       .then(() => {
@@ -90,7 +91,6 @@ export class ElectionManager extends EventEmitter {
     const lastEntry = this._state.getLastLogEntry();
     if ((!this._state.votedFor || this._state.votedFor === request.candidateId)
       && request.lastLogIndex >= lastEntry.index) {
-      // this._state.state = RaftState.FOLLOWER;
       this._state.setVotedFor(request.candidateId);
       return true;
     }

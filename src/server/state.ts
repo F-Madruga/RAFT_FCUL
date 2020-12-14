@@ -76,6 +76,9 @@ export class State extends EventEmitter {
   }
 
   public set leader(value: string) {
+    if (this.leader !== value) {
+      logger.debug(`Leader set to ${value}`);
+    }
     this._leader = value;
   }
 
@@ -101,6 +104,9 @@ export class State extends EventEmitter {
   };
 
   public setVotedFor(votedFor: string | undefined) {
+    if (this._votedFor !== votedFor) {
+      logger.debug(`VotedFor set to ${votedFor}`);
+    }
     this._votedFor = votedFor;
     return ready.then(() => StateModel.update({ votedFor }, { where: {} }));
   }

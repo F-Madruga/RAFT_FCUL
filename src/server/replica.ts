@@ -83,6 +83,7 @@ export class Replica extends EventEmitter {
 
   public heartbeat = () => {
     this.start();
+    this._sending = false;
     // logger.debug(`Leader = ${this._state.leader}, VOTED_FOR = ${this._state.votedFor}, TERM = ${this._state.currentTerm}`);
     return this.appendEntries();
   };
@@ -104,6 +105,7 @@ export class Replica extends EventEmitter {
     if (this._sending) {
       return Promise.resolve();
     }
+    this.start();
     this._sending = true;
     const start = this._state.log.findIndex((e) => e.index === this._nextIndex);
     // const entries = start !== -1 ? this._state.log.slice(start) : [];
@@ -140,28 +142,33 @@ export class Replica extends EventEmitter {
             }
             return response;
           }
-          if (this._nextIndex > 1) {
-            logger.debug(`Trying to send entries again to replica ${this.toString()} beginning on index ${this._nextIndex}`);
+          if (this._nextIndex > this._matchIndex) {
+            // logger.debug(`Trying to send entries again to replica ${this._host} beginning on index ${this._nextIndex}`);
             this._nextIndex -= 1;
+            this._sending = false;
             return this.appendEntries();
           }
           return Promise.reject(new Error());
         }
-        // this._state.state = RaftState.FOLLOWER;
-        // this._state.setCurrentTerm(response.term);
+        logger.debug('Response false');
+        logger.debug(response);
+        this._state.state = RaftState.FOLLOWER;
+        this._state.setCurrentTerm(response.term);
         return response;
       })
       .then((response) => {
         this._sending = false;
         const lastEntry = this._state.getLastLogEntry();
         if (this._matchIndex < lastEntry.index) {
-          // REQUEST_PREV_LOG_INDEX = 0, LAST_ENTRY_INDEX = 1
           // logger.debug(`MATCH_INDEX = ${this._matchIndex}, LAST_ENTRY_INDEX = ${lastEntry.index}, REPLICA = ${this.toString()}`);
           return this.appendEntries();
         }
         return response;
       })
-      .catch(() => logger.debug(`Failed to send entries between index ${entries[0].index} and ${entries[entries.length - 1].index} to ${this.toString()}`));
+      .catch(() => {
+        this._sending = false;
+        // logger.debug(`Replica ${this._host} not responding to AppendEntriesRequest`);
+      });
   };
 
   // public appendEntries = (term: number, leaderId: string, prevLogTerm: number,

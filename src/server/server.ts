@@ -102,10 +102,11 @@ export class RaftServer extends EventEmitter {
     this._state.state = RaftState.FOLLOWER;
     this._commandServer = express().use(bodyParser.json()).use(Router().post('/', (req, res) => {
       // if not leader, send leader info
+      logger.debug(`LEADER_INFO = ${this._state.leader || this._host.host}:${this._clientPort}`);
       if (this._state.state !== RaftState.LEADER) {
         const response: RPCLeaderResponse = {
           method: RPCMethod.LEADER_RESPONSE,
-          message: `${this._state.leader}:${this._clientPort}` || `${this._host.host}:${this._clientPort}`,
+          message: `${this._state.leader || this._host.host}:${this._clientPort}`,
         };
         return res.json(response);
       }
