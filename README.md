@@ -37,6 +37,18 @@ Setup on the docker-compose.yml the number of server you want to initialize as t
 version: "3.3"
 
 services:
+  database1:
+    image: postgres:13.1-alpine
+    container_name: raft_fcul_database_1
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      POSTGRES_DB: raft_fcul
+      POSTGRES_USER: user_with_big_pp
+      POSTGRES_PASSWORD: send_bobs
+
   server1:
     build:
       context: .
@@ -47,8 +59,10 @@ services:
     tty: true
     networks:
       - raft_fcul_network
+    depends_on:
+      - database1
     environment:
-      - SERVERS=raft_fcul_server_2 # Servers are separated by ","
+      - SERVERS=raft_fcul_server_2
       - HOST=raft_fcul_server_1
       - LOG_LEVEL=debug
       - CLIENT_PORT=8080
@@ -56,18 +70,32 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - DATABASE_FILE=Raft_DB.db
+      - DATABASE_URL=postgres://user_with_big_pp:send_bobs@raft_fcul_database_1:5432/raft_fcul
+
+  database2:
+    image: postgres:13.1-alpine
+    container_name: raft_fcul_database_2
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      POSTGRES_DB: raft_fcul
+      POSTGRES_USER: user_with_big_pp
+      POSTGRES_PASSWORD: send_bobs
 
   server2:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.server
     image: raft_fcul_server
-    container_name: raft_fcul_server_2 # Servers are separated by ","
+    container_name: raft_fcul_server_2
     stdin_open: true
     tty: true
     networks:
       - raft_fcul_network
+    depends_on:
+      - database2
     environment:
       - SERVERS=raft_fcul_server_1
       - HOST=raft_fcul_server_2
@@ -77,7 +105,7 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - DATABASE_FILE=Raft_DB.db
+      - DATABASE_URL=postgres://user_with_big_pp:send_bobs@raft_fcul_database_2:5432/raft_fcul
 
   client:
     build:
@@ -93,11 +121,11 @@ services:
       - LOG_LEVEL=debug
       - PORT=8080
       - WEBSOCKET=false
-      - INTERACTIVE=false # True if you want to control the client, false if you want an automatic client
-      - PARALLEL_REQUESTS=1 # If interactive is false, choose how many automatic client exists (number of threads)
+      - INTERACTIVE=false
+      - PARALLEL_REQUESTS=1
       - REQUEST_INTERVAL=5000
     depends_on:
-      - server1 # List of all the server service in this file
+      - server1
       - server2
 
 networks:
