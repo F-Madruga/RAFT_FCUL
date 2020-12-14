@@ -1,4 +1,4 @@
-import logger from '../utils/log.util';
+// import logger from '../utils/log.util';
 
 export interface IRaftStore {
   apply: (message: string) => any,
