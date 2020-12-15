@@ -107,13 +107,7 @@ export class Replica extends EventEmitter {
     }
     this.start();
     this._sending = true;
-    const start = this._state.log.findIndex((e) => e.index === this._nextIndex);
-    // const entries = start !== -1 ? this._state.log.slice(start) : [];
-    let entries: LogEntry[] = [];
-    if (start !== -1) {
-      entries = this._state.log.slice(start);
-      // logger.debug(entries);
-    }
+    const entries = this._state.logSlice(this._nextIndex);
     // logger.debug(`NEXT_INDEX = ${this._nextIndex}, LAST_ENTRY_INDEX = ${lastEntry.index}, START = ${start}`);
     const previousEntry = this._state.getLogEntry(this._matchIndex) || {
       term: 0,

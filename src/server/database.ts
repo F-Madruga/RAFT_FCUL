@@ -6,14 +6,29 @@ import logger from '../utils/log.util';
 
 const { argv } = yargs(process.argv.slice(2)).options({
   host: { type: 'string', alias: 'H' },
-  databaseUrl: { type: 'string', alias: 'd' },
-  databaseFile: { type: 'string', alias: 'D' },
+  database: { type: 'string', alias: 'd' },
+  databaseHost: { type: 'string' },
+  databasePort: { type: 'number' },
+  databaseUsername: { type: 'string' },
+  databasePassword: { type: 'string' },
+  databaseDialect: { type: 'string' },
 });
-const url = argv.databaseUrl || process.env.DATABASE_URL
-  || `sqlite://${argv.database || process.env.DATABASE_FILE
-    || `raft_${argv.host || process.env.HOST || 'database'}.db`}`;
-export const Client = new Sequelize(url, {
-  // dialect: 'sqlite',
+// const url = argv.databaseUrl || process.env.DATABASE_URL
+//   || `sqlite://${argv.database || process.env.DATABASE_FILE
+//     || `raft_${argv.host || process.env.HOST || 'database'}.db`}`;
+const database = argv.database || process.env.DATABASE_NAME || 'raft_fcul';
+const host = argv.databaseHost || process.env.DATABASE_HOST || 'localhost';
+const port = argv.databasePort || parseInt(`${process.env.DATABASE_PORT || 3306}`, 10);
+const username = argv.databaseUsername || process.env.DATABASE_USERNAME;
+const password = argv.databasePassword || process.env.DATABASE_PASSWORD;
+const dialect = argv.databaseDialect || process.env.DATABASE_DIALECT || 'mysql';
+export const Client = new Sequelize({
+  database,
+  host,
+  port,
+  dialect: dialect as any,
+  username,
+  password,
   // storage: argv.database || process.env.DATABASE_FILE
   //   || `raft_${argv.host || process.env.HOST || 'database'}.db`,
   logging: false,
@@ -25,11 +40,11 @@ export const Log = Client.define('Log', {
     allowNull: false,
   },
   term: {
-    type: DataTypes.NUMBER,
+    type: DataTypes.INTEGER,
     allowNull: false,
   },
   index: {
-    type: DataTypes.NUMBER,
+    type: DataTypes.INTEGER,
     allowNull: false,
     primaryKey: true,
   },
@@ -56,7 +71,7 @@ export const Log = Client.define('Log', {
 
 export const State = Client.define('State', {
   currentTerm: {
-    type: DataTypes.NUMBER,
+    type: DataTypes.INTEGER,
     allowNull: false,
     primaryKey: true,
   },

@@ -79,9 +79,9 @@ export class ReplicationManager extends EventEmitter {
 
   public append = (request: RPCAppendEntriesRequest) => Promise.resolve(this._mutex.acquire())
     .then(() => {
-      if (this._state.log.length === 0) {
-        logger.debug('APPEND_LOG_LENGTH IS EMPTY!!!!!!!!');
-      }
+      // if (this._state.log.length === 0) {
+      //   logger.debug('APPEND_LOG_LENGTH IS EMPTY!!!!!!!!');
+      // }
       if (request.term < this._state.currentTerm) {
         logger.debug(`REQUEST_TERM = ${request.term}, CURRENT_TERM = ${this._state.currentTerm}`);
         return false;
@@ -105,12 +105,14 @@ export class ReplicationManager extends EventEmitter {
       return Promise.all(request.entries)
         .map((entry) => this._state.addLogEntry(entry))
         .then(() => {
-          if (request.entries.length > 0) {
-            logger.debug(this._state.log);
-          }
+          // if (request.entries.length > 0) {
+          //   logger.debug(this._state.log);
+          // }
+          const entriesToApply = this._state
+            .logSlice(this._state.lastApplied + 1, this._state.commitIndex + 1);
+          return Promise.all(entriesToApply)
+            .map((entry) => this._state.apply(entry.data));
         })
-        .then(() => Promise.all(request.entries)
-          .map((entry) => this._state.commitIndex >= entry.index && this._state.apply(entry.data)))
         .then(() => true);
     })
     .tap(() => this._mutex.release());
