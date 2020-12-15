@@ -40,7 +40,8 @@ export class State extends EventEmitter {
     this._state = options.state || RaftState.FOLLOWER;
     this._leader = options.leader || '';
     // Persistent state on all servers
-    this._ready = ready.then(() => StateModel.findOne({ raw: true }))
+    this._ready = ready
+      .then(() => StateModel.findOne({ raw: true }))
       .catch(() => undefined)
       .then((state: any) => state || StateModel.create({
         currentTerm: 0,
@@ -51,9 +52,8 @@ export class State extends EventEmitter {
         this._votedFor = state.votedFor;
       })
       .then(() => LogModel.findAll({ raw: true }))
-      .catch(() => undefined)
       .then((logs) => { this._log = logs as any[]; })
-      .tap(() => logger.debug(`LOG_LENGTH = ${this._log.length}`))
+      // .tap(() => logger.debug(`LOG_LENGTH = ${this._log.length}`))
       .tapCatch((e) => logger.error(`Error preparing State: ${e.message}`))
       .catch(() => process.exit(1));
     // Volatile state on all servers
@@ -125,6 +125,15 @@ export class State extends EventEmitter {
   } as LogEntry);
 
   public getLogEntry = (index: number) => this._log.find((entry) => entry.index === index);
+
+  public logSlice = (start: number, end?: number) => {
+    const startIndex = this._log.findIndex((e) => e.index === start);
+    const endIndex = end !== undefined ? this._log.findIndex((e) => e.index === end) : undefined;
+    if (startIndex >= 0 && (endIndex || 0) >= 0) {
+      return this._log.slice(startIndex, endIndex);
+    }
+    return [];
+  };
 
   public addLogEntry = (entry: LogEntry) => {
     if (this._log.length > 0

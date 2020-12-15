@@ -45,10 +45,14 @@ export class RaftClient {
       .send(JSON.stringify({ method: RPCMethod.COMMAND_REQUEST, message })))
       .then(() => '')
     : this.send({ method: RPCMethod.COMMAND_REQUEST, message })
-      .then((response) => this.response(response, message)));
+      .then((response) => this.response(response, message))
+      .catch(() => {
+        this.chooseRandomLeader();
+        return this.request(message);
+      }));
 
   private send = (request: RPCRequest) => Promise
-    .resolve(axios.post(`http://${this.leader}`, request,
+    .resolve(axios.post(`http${this.secure ? 's' : ''}://${this.leader}`, request,
       { headers: { Authorization: `Bearer ${this.token}` } }))
     .tap(() => logger.debug(`Sent request to ${this.leader}: ${request.method}`))
     .then<RPCResponse>((response) => response.data)
