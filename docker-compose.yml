@@ -1,17 +1,25 @@
-version: "3.3"
+version: "2.1"
 
 services:
   database1:
-    image: postgres:13.1-alpine
+    image: mysql:8.0.22
     container_name: raft_fcul_database_1
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
     stdin_open: true
     tty: true
     networks:
       - raft_fcul_network
     environment:
-      POSTGRES_DB: raft_fcul
-      POSTGRES_USER: user_with_big_pp
-      POSTGRES_PASSWORD: send_bobs
+      - MYSQL_DATABASE=raft_fcul
+      - MYSQL_USER=user_with_big_pp
+      - MYSQL_ROOT_PASSWORD=send_bobs
+      - MYSQL_PASSWORD=send_bobs
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   server1:
     build:
@@ -19,13 +27,21 @@ services:
       dockerfile: ./docker/Dockerfile.server
     image: raft_fcul_server
     container_name: raft_fcul_server_1
-    # command: sh -c "sleep 2 && npm run start:server --silent"
     stdin_open: true
     tty: true
     networks:
       - raft_fcul_network
     depends_on:
-      - database1
+      database1:
+        condition: service_healthy
+      database2:
+        condition: service_healthy
+      database3:
+        condition: service_healthy
+      database4:
+        condition: service_healthy
+      database5:
+        condition: service_healthy
     environment:
       - SERVERS=raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
       - HOST=raft_fcul_server_1
@@ -35,19 +51,32 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - DATABASE_URL=postgres://user_with_big_pp:send_bobs@raft_fcul_database_1:5432/raft_fcul
+      - DATABASE_NAME=raft_fcul
+      - DATABASE_USERNAME=user_with_big_pp
+      - DATABASE_PASSWORD=send_bobs
+      - DATABASE_HOST=raft_fcul_database_1
+      - DATABASE_PORT=3306
+      - DATABASE_DIALECT=mysql
 
   database2:
-    image: postgres:13.1-alpine
+    image: mysql:8.0.22
     container_name: raft_fcul_database_2
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
     stdin_open: true
     tty: true
     networks:
       - raft_fcul_network
     environment:
-      POSTGRES_DB: raft_fcul
-      POSTGRES_USER: user_with_big_pp
-      POSTGRES_PASSWORD: send_bobs
+      - MYSQL_DATABASE=raft_fcul
+      - MYSQL_USER=user_with_big_pp
+      - MYSQL_ROOT_PASSWORD=send_bobs
+      - MYSQL_PASSWORD=send_bobs
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   server2:
     build:
@@ -55,13 +84,21 @@ services:
       dockerfile: ./docker/Dockerfile.server
     image: raft_fcul_server
     container_name: raft_fcul_server_2
-    # command: sh -c "sleep 2 && npm run start:server --silent"
     stdin_open: true
     tty: true
     networks:
       - raft_fcul_network
     depends_on:
-      - database2
+      database1:
+        condition: service_healthy
+      database2:
+        condition: service_healthy
+      database3:
+        condition: service_healthy
+      database4:
+        condition: service_healthy
+      database5:
+        condition: service_healthy
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
       - HOST=raft_fcul_server_2
@@ -71,19 +108,32 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - DATABASE_URL=postgres://user_with_big_pp:send_bobs@raft_fcul_database_2:5432/raft_fcul
+      - DATABASE_NAME=raft_fcul
+      - DATABASE_USERNAME=user_with_big_pp
+      - DATABASE_PASSWORD=send_bobs
+      - DATABASE_HOST=raft_fcul_database_2
+      - DATABASE_PORT=3306
+      - DATABASE_DIALECT=mysql
 
   database3:
-    image: postgres:13.1-alpine
+    image: mysql:8.0.22
     container_name: raft_fcul_database_3
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
     stdin_open: true
     tty: true
     networks:
       - raft_fcul_network
     environment:
-      POSTGRES_DB: raft_fcul
-      POSTGRES_USER: user_with_big_pp
-      POSTGRES_PASSWORD: send_bobs
+      - MYSQL_DATABASE=raft_fcul
+      - MYSQL_USER=user_with_big_pp
+      - MYSQL_ROOT_PASSWORD=send_bobs
+      - MYSQL_PASSWORD=send_bobs
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   server3:
     build:
@@ -91,13 +141,21 @@ services:
       dockerfile: ./docker/Dockerfile.server
     image: raft_fcul_server
     container_name: raft_fcul_server_3
-    # command: sh -c "sleep 2 && npm run start:server --silent"
     stdin_open: true
     tty: true
     networks:
       - raft_fcul_network
     depends_on:
-      - database3
+      database1:
+        condition: service_healthy
+      database2:
+        condition: service_healthy
+      database3:
+        condition: service_healthy
+      database4:
+        condition: service_healthy
+      database5:
+        condition: service_healthy
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_4,raft_fcul_server_5
       - HOST=raft_fcul_server_3
@@ -107,19 +165,32 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - DATABASE_URL=postgres://user_with_big_pp:send_bobs@raft_fcul_database_3:5432/raft_fcul
+      - DATABASE_NAME=raft_fcul
+      - DATABASE_USERNAME=user_with_big_pp
+      - DATABASE_PASSWORD=send_bobs
+      - DATABASE_HOST=raft_fcul_database_3
+      - DATABASE_PORT=3306
+      - DATABASE_DIALECT=mysql
 
   database4:
-    image: postgres:13.1-alpine
+    image: mysql:8.0.22
     container_name: raft_fcul_database_4
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
     stdin_open: true
     tty: true
     networks:
       - raft_fcul_network
     environment:
-      POSTGRES_DB: raft_fcul
-      POSTGRES_USER: user_with_big_pp
-      POSTGRES_PASSWORD: send_bobs
+      - MYSQL_DATABASE=raft_fcul
+      - MYSQL_USER=user_with_big_pp
+      - MYSQL_ROOT_PASSWORD=send_bobs
+      - MYSQL_PASSWORD=send_bobs
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   server4:
     build:
@@ -127,13 +198,21 @@ services:
       dockerfile: ./docker/Dockerfile.server
     image: raft_fcul_server
     container_name: raft_fcul_server_4
-    # command: sh -c "sleep 2 && npm run start:server --silent"
     stdin_open: true
     tty: true
     networks:
       - raft_fcul_network
     depends_on:
-      - database4
+      database1:
+        condition: service_healthy
+      database2:
+        condition: service_healthy
+      database3:
+        condition: service_healthy
+      database4:
+        condition: service_healthy
+      database5:
+        condition: service_healthy
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_5
       - HOST=raft_fcul_server_4
@@ -143,19 +222,32 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - DATABASE_URL=postgres://user_with_big_pp:send_bobs@raft_fcul_database_4:5432/raft_fcul
+      - DATABASE_NAME=raft_fcul
+      - DATABASE_USERNAME=user_with_big_pp
+      - DATABASE_PASSWORD=send_bobs
+      - DATABASE_HOST=raft_fcul_database_4
+      - DATABASE_PORT=3306
+      - DATABASE_DIALECT=mysql
 
   database5:
-    image: postgres:13.1-alpine
+    image: mysql:8.0.22
     container_name: raft_fcul_database_5
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
     stdin_open: true
     tty: true
     networks:
       - raft_fcul_network
     environment:
-      POSTGRES_DB: raft_fcul
-      POSTGRES_USER: user_with_big_pp
-      POSTGRES_PASSWORD: send_bobs
+      - MYSQL_DATABASE=raft_fcul
+      - MYSQL_USER=user_with_big_pp
+      - MYSQL_ROOT_PASSWORD=send_bobs
+      - MYSQL_PASSWORD=send_bobs
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   server5:
     build:
@@ -163,13 +255,21 @@ services:
       dockerfile: ./docker/Dockerfile.server
     image: raft_fcul_server
     container_name: raft_fcul_server_5
-    # command: sh -c "sleep 2 && npm run start:server --silent"
     stdin_open: true
     tty: true
     networks:
       - raft_fcul_network
     depends_on:
-      - database5
+      database1:
+        condition: service_healthy
+      database2:
+        condition: service_healthy
+      database3:
+        condition: service_healthy
+      database4:
+        condition: service_healthy
+      database5:
+        condition: service_healthy
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4
       - HOST=raft_fcul_server_5
@@ -179,7 +279,12 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - DATABASE_URL=postgres://user_with_big_pp:send_bobs@raft_fcul_database_5:5432/raft_fcul
+      - DATABASE_NAME=raft_fcul
+      - DATABASE_USERNAME=user_with_big_pp
+      - DATABASE_PASSWORD=send_bobs
+      - DATABASE_HOST=raft_fcul_database_5
+      - DATABASE_PORT=3306
+      - DATABASE_DIALECT=mysql
 
   client:
     build:
