@@ -53,7 +53,7 @@ export class State extends EventEmitter {
       })
       .then(() => LogModel.findAll({ raw: true }))
       .then((logs) => { this._log = logs as any[]; })
-      // .tap(() => logger.debug(`LOG_LENGTH = ${this._log.length}`))
+      .tap(() => logger.debug(`Database synched: ${this.toString()}`))
       .tapCatch((e) => logger.error(`Error preparing State: ${e.message}`))
       .catch(() => process.exit(1));
     // Volatile state on all servers
@@ -126,11 +126,16 @@ export class State extends EventEmitter {
 
   public getLogEntry = (index: number) => this._log.find((entry) => entry.index === index);
 
+  /**
+   * Slice with inclusive end
+   * @param end Inclusive end
+   */
   public logSlice = (start: number, end?: number) => {
     const startIndex = this._log.findIndex((e) => e.index === start);
-    const endIndex = end !== undefined ? this._log.findIndex((e) => e.index === end) : undefined;
+    const endIndex = end !== undefined
+      ? this._log.findIndex((e) => e.index === end) : undefined;
     if (startIndex >= 0 && (endIndex || 0) >= 0) {
-      return this._log.slice(startIndex, endIndex);
+      return this._log.slice(startIndex, endIndex ? endIndex + 1 : undefined);
     }
     return [];
   };
@@ -168,11 +173,14 @@ export class State extends EventEmitter {
     return this._ready;
   }
 
+  public toString = () => `State = ${this._state}, CurrentTerm = ${this._currentTerm}, LastLogEntryIndex = ${this.getLastLogEntry().index}, CommitIndex = ${this._commitIndex}, LastApplied = ${this._lastApplied}`;
+
   public isRead = (message: string) => this._store.isRead(message);
 
   public apply = (message: string) => {
     const response = this._store.apply(message);
     this._lastApplied += 1;
+    logger.debug(`LastApplied updated: ${this.toString()}`);
     return response;
   };
 }

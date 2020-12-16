@@ -24,11 +24,11 @@ const password = argv.databasePassword || process.env.DATABASE_PASSWORD;
 const dialect = argv.databaseDialect || process.env.DATABASE_DIALECT || 'mysql';
 export const Client = new Sequelize({
   database,
+  username,
+  password,
   host,
   port,
   dialect: dialect as any,
-  username,
-  password,
   // storage: argv.database || process.env.DATABASE_FILE
   //   || `raft_${argv.host || process.env.HOST || 'database'}.db`,
   logging: false,

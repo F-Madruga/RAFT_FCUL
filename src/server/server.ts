@@ -82,7 +82,6 @@ export class RaftServer extends EventEmitter {
     });
     this._state.ready.then(() => {
       this._state.on(Event.STATE_CHANGED, (state: RaftState) => {
-        // logger.debug(`Changing state: ${state}`);
         this.emit(Event.STATE_CHANGED, state);
         switch (state) {
           case RaftState.FOLLOWER:
@@ -104,8 +103,8 @@ export class RaftServer extends EventEmitter {
     });
     this._commandServer = express().use(bodyParser.json()).use(Router().post('/', (req, res) => {
       // if not leader, send leader info
-      logger.debug(`LEADER_INFO = ${this._state.leader || this._host.host}:${this._clientPort}`);
       if (this._state.state !== RaftState.LEADER) {
+        logger.debug(`Sending leader info: ${this._state.leader || this._host.host}:${this._clientPort}`);
         const response: RPCLeaderResponse = {
           method: RPCMethod.LEADER_RESPONSE,
           message: `${this._state.leader || this._host.host}:${this._clientPort}`,
