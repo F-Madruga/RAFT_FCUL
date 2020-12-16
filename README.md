@@ -1,35 +1,35 @@
-# RAFT_FCUL
+# **RAFT_FCUL**
 
 Implementation of [Raft consensus algorithm](https://raft.github.io/)
 
-## Table of Contents
+# Table of Contents
 
-1. [Requirements](##requirements)
-2. [Usage](##usage)
-3. [Configuration](##configuration)
-4. [Useful commands](##useful-commands)
+1. [Requirements](#requirements)
+2. [Usage](#usage)
+3. [Configuration](#configuration)
+4. [Useful commands](#useful-commands)
 
-## Requirements
+# Requirements
 
 - Node js (npm)
 - Docker
 - Docker-compose
 
-## Usage
+# Usage
 
-### Start servers and clients
+## Start servers and clients
 
 ```
 npm run docker:compose:up
 ```
 
-### Stop servers and clients
+## Stop servers and clients
 
 ```
 npm run docker:compose:down
 ```
 
-## Configuration
+# Configuration
 
 Setup on the docker-compose.yml the number of server you want to initialize as the example below:
 
@@ -132,7 +132,7 @@ networks:
   raft_fcul_network:
 ```
 
-## Useful commands
+# Useful commands
 
 | Command                               | Behavior                                                              | Observations                                                                                 |
 | :------------------------------------ | :-------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
