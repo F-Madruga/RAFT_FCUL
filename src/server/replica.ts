@@ -30,6 +30,7 @@ export class Replica extends EventEmitter {
   private _state: State;
   private _timeout: number;
   private _sending: boolean;
+  private _requesting: Promise<any>;
 
   constructor(options: ReplicaOptions) {
     super();
@@ -40,6 +41,7 @@ export class Replica extends EventEmitter {
     this._state = options.state;
     this._timeout = options.heartbeatTimeout || 50;
     this._sending = false;
+    this._requesting = Promise.resolve();
   }
 
   private RPCRequest = <T>(url: string, data: any) => Promise.resolve(axios.post(url, data))
@@ -84,6 +86,7 @@ export class Replica extends EventEmitter {
   public heartbeat = () => {
     this.start();
     this._sending = false;
+    this._requesting.cancel();
     // logger.debug(`Leader = ${this._state.leader}, VOTED_FOR = ${this._state.votedFor}, TERM = ${this._state.currentTerm}`);
     return this.appendEntries();
   };
@@ -103,13 +106,15 @@ export class Replica extends EventEmitter {
 
   public appendEntries = (): any => {
     if (this._sending) {
-      return Promise.resolve();
+      return undefined;
     }
-    this.start();
     this._sending = true;
+    this.start();
+    // if (!this.alive) {
+    //   logger.debug(`BEFORE_SLICE: NEXT_INDEX = ${this._nextIndex}, MATCH_INDEX = ${this._matchIndex}, LOG_LENGTH = ${this._state.log.length}, FOUND_LAST = ${this._state.getLogEntry(this._matchIndex) ? 'found' : 'not found'}`);
+    // }
     const entries = this._state.logSlice(this._nextIndex);
-    // logger.debug(`NEXT_INDEX = ${this._nextIndex}, LAST_ENTRY_INDEX = ${lastEntry.index}, START = ${start}`);
-    const previousEntry = this._state.getLogEntry(this._matchIndex) || {
+    const previousEntry = this._state.getLogEntry(this._nextIndex - 1) || {
       term: 0,
       index: 0,
     } as LogEntry;
@@ -125,27 +130,31 @@ export class Replica extends EventEmitter {
     // if (entries.length > 0) {
     //   logger.debug(request);
     // }
-    return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this.toString()}`, request)
+    this._requesting = this.RPCRequest<RPCAppendEntriesResponse>(`http://${this.toString()}`, request)
       .tap((response) => {
-        // logger.debug(`Replica ${this.toString()} response: ${JSON.stringify(response, null, 2)}`);
+        // if (!this.alive) {
+        //   logger.debug(request);
+        //   logger.debug(response);
+        // }
         if (response.term <= this._state.currentTerm) {
           if (response.success) {
             if (entries.length > 0) {
               this._nextIndex += entries.length;
-              this.matchIndex = this._matchIndex + entries.length;
+              this.matchIndex = this._nextIndex - 1; // this._matchIndex + entries.length;
             }
+            // if (!this.alive) {
+            //   logger.debug(`NEXT_INDEX = ${this._nextIndex}, MATCH_INDEX = ${this._matchIndex}, LOG_LENGTH = ${this._state.log.length}, FOUND_LAST = ${this._state.getLogEntry(this._matchIndex) ? 'found' : 'not found'}`);
+            // }
             return response;
           }
-          if (this._nextIndex > this._matchIndex) {
-            // logger.debug(`Trying to send entries again to replica ${this._host} beginning on index ${this._nextIndex}`);
+          if (this._nextIndex > this._matchIndex + 1) {
+            logger.debug(`Trying to send entries again to replica ${this._host}`);
             this._nextIndex -= 1;
             this._sending = false;
             return this.appendEntries();
           }
           return Promise.reject(new Error());
         }
-        logger.debug('Response false');
-        logger.debug(response);
         this._state.state = RaftState.FOLLOWER;
         this._state.setCurrentTerm(response.term);
         return response;
@@ -161,7 +170,9 @@ export class Replica extends EventEmitter {
       })
       .catch(() => {
         this._sending = false;
-        // logger.debug(`Replica ${this._host} not responding to AppendEntriesRequest`);
+        // this.alive = false;
+        // logger.debug(request);
       });
+    return this._requesting;
   };
 }
