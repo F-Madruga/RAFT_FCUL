@@ -70,7 +70,7 @@ export class ReplicationManager extends EventEmitter {
       leaderId: this._host.toString(),
     };
     this._state.addLogEntry(entry);
-    logger.debug(this._state.log);
+    logger.debug(`Entry to replicate: Term = ${entry.term}, Index = ${entry.index}`);
     this._replicas.map((replica) => replica.appendEntries());
     return new Promise((resolve) => {
       this._toCommit[entry.index] = resolve;
@@ -99,7 +99,7 @@ export class ReplicationManager extends EventEmitter {
       if (request.leaderCommit > this._state.commitIndex) {
         this._state.commitIndex = Math
           .min(request.leaderCommit, (lastNewEntry || {}).index || request.leaderCommit);
-        logger.debug(`Update commit index = ${this._state.commitIndex}`);
+        logger.debug(`CommitIndex updated: ${this._state.toString()}`);
       }
       // logger.debug(`Leader = ${this._state.leader}, VOTED_FOR = ${this._state.votedFor}, TERM = ${this._state.currentTerm}`);
       return Promise.all(request.entries)
@@ -109,9 +109,16 @@ export class ReplicationManager extends EventEmitter {
           //   logger.debug(this._state.log);
           // }
           const entriesToApply = this._state
-            .logSlice(this._state.lastApplied + 1, this._state.commitIndex + 1);
+            .logSlice(this._state.lastApplied + 1, this._state.commitIndex);
+          // logger.debug(`Applying entries: ${this._state.toString()}`);
+          // logger.debug(`Entries to apply = ${entriesToApply.length}, LastApplied = ${this._state.lastApplied + 1}, CommitIndex = ${this._state.commitIndex}`);
           return Promise.all(entriesToApply)
             .map((entry) => this._state.apply(entry.data));
+        })
+        .then(() => {
+          if (request.entries.length > 0) {
+            logger.debug(`Log updated: ${this._state.toString()}`);
+          }
         })
         .then(() => true);
     })
