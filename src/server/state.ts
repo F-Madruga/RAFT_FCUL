@@ -180,6 +180,7 @@ export class State extends EventEmitter {
   public apply = (message: string) => {
     const response = this._store.apply(message);
     this._lastApplied += 1;
+    logger.debug(`LastApplied updated: ${this.toString()}`);
     return response;
   };
 }

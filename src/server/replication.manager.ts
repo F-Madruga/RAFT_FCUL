@@ -37,11 +37,11 @@ export class ReplicationManager extends EventEmitter {
       while (this._replicas.filter((r) => r.matchIndex > this._state.commitIndex).length
         >= this._replicas.length / 2) {
         this._state.commitIndex += 1;
-        logger.debug(`incremented commitIndex to ${this._state.commitIndex}`);
+        logger.debug(`CommitIndex updated: ${this._state.toString()}`);
       }
       const { lastApplied } = this._state;
       if (this._state.commitIndex > lastApplied && this._toCommit[lastApplied + 1]) {
-        logger.debug(`committing ${lastApplied + 1}`);
+        logger.debug(`Quorum committed: ${this._state.toString()}`);
         this._toCommit[lastApplied + 1]();
         delete this._toCommit[lastApplied + 1];
       }
@@ -70,7 +70,7 @@ export class ReplicationManager extends EventEmitter {
       leaderId: this._host.toString(),
     };
     this._state.addLogEntry(entry);
-    logger.debug(`Entry to replicate: Term = ${entry.term}, Index = ${entry.index}`);
+    logger.debug(`New entry to replicate: ${this._state.toString()}`);
     this._replicas.map((replica) => replica.appendEntries());
     return new Promise((resolve) => {
       this._toCommit[entry.index] = resolve;

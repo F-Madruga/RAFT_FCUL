@@ -114,7 +114,7 @@ export class Replica extends EventEmitter {
     //   logger.debug(`BEFORE_SLICE: NEXT_INDEX = ${this._nextIndex}, MATCH_INDEX = ${this._matchIndex}, LOG_LENGTH = ${this._state.log.length}, FOUND_LAST = ${this._state.getLogEntry(this._matchIndex) ? 'found' : 'not found'}`);
     // }
     const entries = this._state.logSlice(this._nextIndex);
-    const previousEntry = this._state.getLogEntry(this._matchIndex) || {
+    const previousEntry = this._state.getLogEntry(this._nextIndex - 1) || {
       term: 0,
       index: 0,
     } as LogEntry;
@@ -140,7 +140,7 @@ export class Replica extends EventEmitter {
           if (response.success) {
             if (entries.length > 0) {
               this._nextIndex += entries.length;
-              this.matchIndex = this._matchIndex + entries.length;
+              this.matchIndex = this._nextIndex - 1; // this._matchIndex + entries.length;
             }
             // if (!this.alive) {
             //   logger.debug(`NEXT_INDEX = ${this._nextIndex}, MATCH_INDEX = ${this._matchIndex}, LOG_LENGTH = ${this._state.log.length}, FOUND_LAST = ${this._state.getLogEntry(this._matchIndex) ? 'found' : 'not found'}`);
