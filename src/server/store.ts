@@ -1,32 +1,40 @@
 // import logger from '../utils/log.util';
 
 export interface IRaftStore {
+  snapshot: () => { [key: string]: string },
+  install: (snapshot: { [key: string]: string }) => any,
   apply: (message: string) => any,
   isRead: (message: string) => boolean,
 }
 
 export class Store implements IRaftStore {
-  private store: { [key: string]: string };
+  private _store: { [key: string]: string };
 
   constructor() {
-    this.store = {};
+    this._store = {};
   }
 
-  public put = (key: string, value: string) => { this.store[key] = value; };
+  public snapshot = () => ({ ...this._store });
 
-  public get = (key: string) => this.store[key];
+  public install = (snapshot: { [key: string]: string }) => {
+    this._store = snapshot;
+  };
+
+  public put = (key: string, value: string) => { this._store[key] = value; };
+
+  public get = (key: string) => this._store[key];
 
   public del = (key: string) => {
-    const value = this.store[key];
-    delete this.store[key];
+    const value = this._store[key];
+    delete this._store[key];
     return value;
   };
 
-  public list = () => JSON.parse(JSON.stringify(this.store));
+  public list = () => JSON.parse(JSON.stringify(this._store));
 
   public cas = (key: string, vOld: string, vNew: string) => {
-    const value = this.store[key];
-    if (value === vOld) this.store[key] = vNew;
+    const value = this._store[key];
+    if (value === vOld) this._store[key] = vNew;
     return value;
   };
 

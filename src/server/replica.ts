@@ -7,11 +7,12 @@ import logger from '../utils/log.util';
 import {
   RPCAppendEntriesRequest,
   RPCAppendEntriesResponse,
+  RPCInstallSnapshotRequest,
   RPCMethod,
   RPCRequestVoteRequest,
   RPCRequestVoteResponse,
 } from '../utils/rpc.util';
-import { RaftState, State } from './state';
+import { RaftState, Snapshot, State } from './state';
 import { LogEntry } from './log';
 
 export type ReplicaOptions = {
@@ -174,5 +175,19 @@ export class Replica extends EventEmitter {
       .catch(() => {
         this._sending = false;
       });
+  };
+
+  public installSnapshot = (snapshot: Snapshot) => {
+    const request: RPCInstallSnapshotRequest = {
+      method: RPCMethod.INSTALL_SNAPSHOT_REQUEST,
+      term: this._state.currentTerm,
+      leaderId: this._state.leader,
+      lastIncludedIndex: snapshot.lastIncludedIndex,
+      lastIncludedTerm: snapshot.lastIncludedTerm,
+      offset: 0,
+      data: JSON.stringify(snapshot.data),
+      done: true,
+    };
+    return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this.toString()}`, request);
   };
 }
