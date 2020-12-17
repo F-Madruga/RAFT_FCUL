@@ -88,7 +88,7 @@ export class ElectionManager extends EventEmitter {
       this._state.state = RaftState.FOLLOWER;
       this._state.setCurrentTerm(request.term);
     }
-    const lastEntry = this._state.getLastLogEntry();
+    const lastEntry = this._state.log.getLastEntry();
     if ((!this._state.votedFor || this._state.votedFor === request.candidateId)
       && request.lastLogIndex >= lastEntry.index) {
       this._state.setVotedFor(request.candidateId);
