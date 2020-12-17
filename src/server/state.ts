@@ -1,16 +1,26 @@
 import { EventEmitter } from 'events';
+import fs from 'fs';
+import path from 'path';
 
 import logger from '../utils/log.util';
 import { Event } from '../utils/constants.util';
-import { Log } from './log';
+import { Log, LogEntry } from './log';
 import { ready, State as StateModel } from './database';
 import { IRaftStore } from './store';
+
+export const snapshotFileName = path.resolve(__dirname, './snapshot.json');
 
 export enum RaftState {
   LEADER = 'LEADER',
   FOLLOWER = 'FOLLOWER',
   CANDIDATE = 'CANDIDATE',
 }
+
+export type Snapshot = {
+  lastIncludedIndex: number,
+  lastIncludedTerm: number,
+  data: any,
+};
 
 export type StateOptions = {
   // host: Replica,
@@ -61,6 +71,7 @@ export class State extends EventEmitter {
     this._lastApplied = 0;
     // Volatile state on leaders
     this._store = options.store;
+    // TODO: recover snapshot
   }
 
   public get state() {
@@ -143,10 +154,36 @@ export class State extends EventEmitter {
 
   public isRead = (message: string) => this._store.isRead(message);
 
-  public apply = (message: string) => {
+  public apply = (message: string, increment?: boolean) => {
     const response = this._store.apply(message);
-    this._lastApplied += 1;
+    if (increment !== false) {
+      this._lastApplied += 1;
+    }
     logger.debug(`LastApplied updated: ${this.toString()}`);
     return response;
+  };
+
+  // TODO: write to snapshot file
+  public installSnapshot = (request: Snapshot) => request;
+
+  public snapshot = () => {
+    // TODO: guarantee nothing is done while snapshotting
+    const data = this._store.snapshot();
+    const lastEntry = this._log.getEntryByIndex(this._lastApplied) || ({
+      term: 0,
+      index: 0,
+    } as LogEntry);
+    this._log.truncate(lastEntry.index);
+    fs.writeFileSync(snapshotFileName, JSON.stringify({
+      lastIncludedIndex: lastEntry.index,
+      lastIncludedTerm: lastEntry.term,
+      data,
+    }));
+    const snapshot: Snapshot = {
+      lastIncludedIndex: lastEntry.index,
+      lastIncludedTerm: lastEntry.term,
+      data,
+    };
+    return snapshot;
   };
 }

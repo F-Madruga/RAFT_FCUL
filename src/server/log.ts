@@ -45,7 +45,7 @@ export class Log {
 
   public getEntryByIndex = (index: number) => this._entries.find((e) => e.index === index);
 
-  public getLastEntry = () => (this._entries[this._entries.length - 1] || {
+  public getLastEntry = () => this._entries[this._entries.length - 1] || ({
     term: 0,
     index: 0,
   } as LogEntry);
@@ -62,6 +62,11 @@ export class Log {
       return this._entries.slice(startIndex, endIndex ? endIndex + 1 : undefined);
     }
     return [];
+  };
+
+  public truncate = (lastIndex: number) => {
+    const endIndex = this._entries.findIndex((e) => e.index === lastIndex);
+    this._entries = this._entries.slice(endIndex === -1 ? 0 : endIndex + 1);
   };
 
   public get ready() {

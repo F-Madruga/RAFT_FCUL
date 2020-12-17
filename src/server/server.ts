@@ -15,6 +15,7 @@ import {
   RPCCommandResponse,
   RPCAppendEntriesResponse,
   RPCRequestVoteResponse,
+  RPCInstallSnapshotResponse,
 } from '../utils/rpc.util';
 import { Event } from '../utils/constants.util';
 import { RaftState, State } from './state';
@@ -22,6 +23,7 @@ import { IRaftStore } from './store';
 import { Replica } from './replica';
 import { ElectionManager } from './election.manager';
 import { ReplicationManager } from './replication.manager';
+import { SnapshotManager } from './snapshot.manager';
 
 export type RaftServerOptions = {
   host: string,
@@ -41,6 +43,7 @@ export class RaftServer extends EventEmitter {
   private _state: State;
   private _electionManager: ElectionManager;
   private _replicationManager: ReplicationManager;
+  private _snapshotManager: SnapshotManager;
   private _commandServer: http.Server;
   private _raftServer: http.Server;
   private _host: Replica;
@@ -76,6 +79,11 @@ export class RaftServer extends EventEmitter {
       maximumElectionTimeout: options.maximumElectionTimeout,
     });
     this._replicationManager = new ReplicationManager({
+      state: this._state,
+      host: this._host,
+      replicas: this._replicas,
+    });
+    this._snapshotManager = new SnapshotManager({
       state: this._state,
       host: this._host,
       replicas: this._replicas,
@@ -117,11 +125,10 @@ export class RaftServer extends EventEmitter {
       switch (request.method) {
         case RPCMethod.COMMAND_REQUEST: {
           // Only replicate if it is a write command
-          return Promise.try(() => (this._state.isRead(request.message)
-            ? undefined
-            : this._replicationManager.replicate(request, clientId)))
+          return Promise.try(() => this._state.isRead(request.message))
+            .tap((isRead) => isRead || this._replicationManager.replicate(request, clientId))
             .tap(() => logger.debug(`Processing client request: ${request.message}`))
-            .then(() => this._state.apply(request.message))
+            .then((isRead) => this._state.apply(request.message, !isRead))
             .then((message) => {
               const response: RPCCommandResponse = {
                 method: RPCMethod.COMMAND_RESPONSE,
@@ -166,6 +173,17 @@ export class RaftServer extends EventEmitter {
                 method: RPCMethod.REQUEST_VOTE_RESPONSE,
                 term: this._state.currentTerm,
                 voteGranted,
+              };
+              return res.json(response);
+            });
+        case RPCMethod.INSTALL_SNAPSHOT_REQUEST:
+          return this._state.ready
+            .then(() => this._snapshotManager.install(request))
+            .catch(() => undefined)
+            .then(() => {
+              const response: RPCInstallSnapshotResponse = {
+                method: RPCMethod.INSTALL_SNAPSHOT_RESPONSE,
+                term: this._state.currentTerm,
               };
               return res.json(response);
             });
