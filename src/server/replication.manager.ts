@@ -59,7 +59,7 @@ export class ReplicationManager extends EventEmitter {
   };
 
   public replicate = (request: RPCCommandRequest, clientId: string) => {
-    const lastEntry = this._state.getLastLogEntry();
+    const lastEntry = this._state.log.getLastEntry();
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       term: this._state.currentTerm,
@@ -69,7 +69,7 @@ export class ReplicationManager extends EventEmitter {
       operationId: nanoid(),
       leaderId: this._host.toString(),
     };
-    this._state.addLogEntry(entry);
+    this._state.log.addEntry(entry);
     logger.debug(`New entry to replicate: ${this._state.toString()}`);
     this._replicas.map((replica) => replica.appendEntries());
     return new Promise((resolve) => {
@@ -89,7 +89,7 @@ export class ReplicationManager extends EventEmitter {
       this._state.state = RaftState.FOLLOWER;
       this._state.leader = request.leaderId;
       this._state.setCurrentTerm(request.term);
-      const previousEntry = this._state.getLogEntry(request.prevLogIndex);
+      const previousEntry = this._state.log.getEntryByIndex(request.prevLogIndex);
       if (request.prevLogIndex !== 0
         && ((previousEntry || {}).term || this._state.currentTerm) !== request.prevLogTerm) {
         logger.debug(`REQUEST_PREV_LOG_INDEX = ${request.prevLogIndex}, PREV_ENTRY_TERM = ${(previousEntry || {}).term || this._state.currentTerm}, CURRENT_TERM = ${this._state.currentTerm}`);
@@ -103,13 +103,13 @@ export class ReplicationManager extends EventEmitter {
       }
       // logger.debug(`Leader = ${this._state.leader}, VOTED_FOR = ${this._state.votedFor}, TERM = ${this._state.currentTerm}`);
       return Promise.all(request.entries)
-        .map((entry) => this._state.addLogEntry(entry))
+        .map((entry) => this._state.log.addEntry(entry))
         .then(() => {
           // if (request.entries.length > 0) {
           //   logger.debug(this._state.log);
           // }
           const entriesToApply = this._state
-            .logSlice(this._state.lastApplied + 1, this._state.commitIndex);
+            .log.slice(this._state.lastApplied + 1, this._state.commitIndex);
           // logger.debug(`Applying entries: ${this._state.toString()}`);
           // logger.debug(`Entries to apply = ${entriesToApply.length}, LastApplied = ${this._state.lastApplied + 1}, CommitIndex = ${this._state.commitIndex}`);
           return Promise.all(entriesToApply)
