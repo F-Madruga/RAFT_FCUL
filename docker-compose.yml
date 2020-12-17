@@ -1,6 +1,27 @@
-version: "3.3"
+version: "2.1"
 
 services:
+  database1:
+    image: mysql:8.0.22
+    container_name: raft_fcul_database_1
+    hostname: raft_fcul_database_1
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      - MYSQL_DATABASE=raft_fcul
+      - MYSQL_USER=user_with_big_pp
+      - MYSQL_ROOT_PASSWORD=send_bobs
+      - MYSQL_PASSWORD=send_bobs
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   server1:
     build:
       context: .
@@ -11,8 +32,19 @@ services:
     tty: true
     networks:
       - raft_fcul_network
+    depends_on:
+      database1:
+        condition: service_healthy
+      database2:
+        condition: service_healthy
+      database3:
+        condition: service_healthy
+      database4:
+        condition: service_healthy
+      database5:
+        condition: service_healthy
     environment:
-      - SERVERS=raft_fcul_server_2 # ,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
+      - SERVERS=raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
       - HOST=raft_fcul_server_1
       - LOG_LEVEL=debug
       - CLIENT_PORT=8080
@@ -20,6 +52,33 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
+      - DATABASE_NAME=raft_fcul
+      - DATABASE_USERNAME=user_with_big_pp
+      - DATABASE_PASSWORD=send_bobs
+      - DATABASE_HOST=raft_fcul_database_1
+      - DATABASE_PORT=3306
+      - DATABASE_DIALECT=mysql
+
+  database2:
+    image: mysql:8.0.22
+    container_name: raft_fcul_database_2
+    hostname: raft_fcul_database_2
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      - MYSQL_DATABASE=raft_fcul
+      - MYSQL_USER=user_with_big_pp
+      - MYSQL_ROOT_PASSWORD=send_bobs
+      - MYSQL_PASSWORD=send_bobs
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   server2:
     build:
@@ -31,8 +90,19 @@ services:
     tty: true
     networks:
       - raft_fcul_network
+    depends_on:
+      database1:
+        condition: service_healthy
+      database2:
+        condition: service_healthy
+      database3:
+        condition: service_healthy
+      database4:
+        condition: service_healthy
+      database5:
+        condition: service_healthy
     environment:
-      - SERVERS=raft_fcul_server_1 # ,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
+      - SERVERS=raft_fcul_server_1,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
       - HOST=raft_fcul_server_2
       - LOG_LEVEL=debug
       - CLIENT_PORT=8080
@@ -40,66 +110,186 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
+      - DATABASE_NAME=raft_fcul
+      - DATABASE_USERNAME=user_with_big_pp
+      - DATABASE_PASSWORD=send_bobs
+      - DATABASE_HOST=raft_fcul_database_2
+      - DATABASE_PORT=3306
+      - DATABASE_DIALECT=mysql
 
-  # server3:
-  #   build:
-  #     context: .
-  #     dockerfile: ./docker/Dockerfile.server
-  #   image: raft_fcul_server
-  #   container_name: raft_fcul_server_3
-  #   stdin_open: true
-  #   tty: true
-  #   networks:
-  #     - raft_fcul_network
-  #   environment:
-  #     - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_4,raft_fcul_server_5
-  #     - HOST=raft_fcul_server_3
-  #     - LOG_LEVEL=debug
-  #     - CLIENT_PORT=8080
-  #     - SERVER_PORT=8081
-  #     - MINIMUM_ELECTION_TIMEOUT=150
-  #     - MAXIMUM_ELECTION_TIMEOUT=300
-  #     - HEARTBEAT_TIMEOUT=50
+  database3:
+    image: mysql:8.0.22
+    container_name: raft_fcul_database_3
+    hostname: raft_fcul_database_3
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      - MYSQL_DATABASE=raft_fcul
+      - MYSQL_USER=user_with_big_pp
+      - MYSQL_ROOT_PASSWORD=send_bobs
+      - MYSQL_PASSWORD=send_bobs
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-  # server4:
-  #   build:
-  #     context: .
-  #     dockerfile: ./docker/Dockerfile.server
-  #   image: raft_fcul_server
-  #   container_name: raft_fcul_server_4
-  #   stdin_open: true
-  #   tty: true
-  #   networks:
-  #     - raft_fcul_network
-  #   environment:
-  #     - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_5
-  #     - HOST=raft_fcul_server_4
-  #     - LOG_LEVEL=debug
-  #     - CLIENT_PORT=8080
-  #     - SERVER_PORT=8081
-  #     - MINIMUM_ELECTION_TIMEOUT=150
-  #     - MAXIMUM_ELECTION_TIMEOUT=300
-  #     - HEARTBEAT_TIMEOUT=50
+  server3:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.server
+    image: raft_fcul_server
+    container_name: raft_fcul_server_3
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    depends_on:
+      database1:
+        condition: service_healthy
+      database2:
+        condition: service_healthy
+      database3:
+        condition: service_healthy
+      database4:
+        condition: service_healthy
+      database5:
+        condition: service_healthy
+    environment:
+      - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_4,raft_fcul_server_5
+      - HOST=raft_fcul_server_3
+      - LOG_LEVEL=debug
+      - CLIENT_PORT=8080
+      - SERVER_PORT=8081
+      - MINIMUM_ELECTION_TIMEOUT=150
+      - MAXIMUM_ELECTION_TIMEOUT=300
+      - HEARTBEAT_TIMEOUT=50
+      - DATABASE_NAME=raft_fcul
+      - DATABASE_USERNAME=user_with_big_pp
+      - DATABASE_PASSWORD=send_bobs
+      - DATABASE_HOST=raft_fcul_database_3
+      - DATABASE_PORT=3306
+      - DATABASE_DIALECT=mysql
 
-  # server5:
-  #   build:
-  #     context: .
-  #     dockerfile: ./docker/Dockerfile.server
-  #   image: raft_fcul_server
-  #   container_name: raft_fcul_server_5
-  #   stdin_open: true
-  #   tty: true
-  #   networks:
-  #     - raft_fcul_network
-  #   environment:
-  #     - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4
-  #     - HOST=raft_fcul_server_5
-  #     - LOG_LEVEL=debug
-  #     - CLIENT_PORT=8080
-  #     - SERVER_PORT=8081
-  #     - MINIMUM_ELECTION_TIMEOUT=150
-  #     - MAXIMUM_ELECTION_TIMEOUT=300
-  #     - HEARTBEAT_TIMEOUT=50
+  database4:
+    image: mysql:8.0.22
+    container_name: raft_fcul_database_4
+    hostname: raft_fcul_database_4
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      - MYSQL_DATABASE=raft_fcul
+      - MYSQL_USER=user_with_big_pp
+      - MYSQL_ROOT_PASSWORD=send_bobs
+      - MYSQL_PASSWORD=send_bobs
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  server4:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.server
+    image: raft_fcul_server
+    container_name: raft_fcul_server_4
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    depends_on:
+      database1:
+        condition: service_healthy
+      database2:
+        condition: service_healthy
+      database3:
+        condition: service_healthy
+      database4:
+        condition: service_healthy
+      database5:
+        condition: service_healthy
+    environment:
+      - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_5
+      - HOST=raft_fcul_server_4
+      - LOG_LEVEL=debug
+      - CLIENT_PORT=8080
+      - SERVER_PORT=8081
+      - MINIMUM_ELECTION_TIMEOUT=150
+      - MAXIMUM_ELECTION_TIMEOUT=300
+      - HEARTBEAT_TIMEOUT=50
+      - DATABASE_NAME=raft_fcul
+      - DATABASE_USERNAME=user_with_big_pp
+      - DATABASE_PASSWORD=send_bobs
+      - DATABASE_HOST=raft_fcul_database_4
+      - DATABASE_PORT=3306
+      - DATABASE_DIALECT=mysql
+
+  database5:
+    image: mysql:8.0.22
+    container_name: raft_fcul_database_5
+    hostname: raft_fcul_database_5
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      - MYSQL_DATABASE=raft_fcul
+      - MYSQL_USER=user_with_big_pp
+      - MYSQL_ROOT_PASSWORD=send_bobs
+      - MYSQL_PASSWORD=send_bobs
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  server5:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.server
+    image: raft_fcul_server
+    container_name: raft_fcul_server_5
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    depends_on:
+      database1:
+        condition: service_healthy
+      database2:
+        condition: service_healthy
+      database3:
+        condition: service_healthy
+      database4:
+        condition: service_healthy
+      database5:
+        condition: service_healthy
+    environment:
+      - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4
+      - HOST=raft_fcul_server_5
+      - LOG_LEVEL=debug
+      - CLIENT_PORT=8080
+      - SERVER_PORT=8081
+      - MINIMUM_ELECTION_TIMEOUT=150
+      - MAXIMUM_ELECTION_TIMEOUT=300
+      - HEARTBEAT_TIMEOUT=50
+      - DATABASE_NAME=raft_fcul
+      - DATABASE_USERNAME=user_with_big_pp
+      - DATABASE_PASSWORD=send_bobs
+      - DATABASE_HOST=raft_fcul_database_5
+      - DATABASE_PORT=3306
+      - DATABASE_DIALECT=mysql
 
   client:
     build:
@@ -111,16 +301,20 @@ services:
     networks:
       - raft_fcul_network
     environment:
-      - SERVERS=raft_fcul_server_1,raft_fcul_server_2 # ,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
+      - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
       - LOG_LEVEL=debug
+      # - LOG_LEVEL=silent
       - PORT=8080
-      - REQUEST_INTERVAL=10000
+      - WEBSOCKET=false
+      - INTERACTIVE=false
+      - PARALLEL_REQUESTS=1
+      - REQUEST_INTERVAL=5000
     depends_on:
       - server1
       - server2
-      # - server3
-      # - server4
-      # - server5
+      - server3
+      - server4
+      - server5
 
 networks:
   raft_fcul_network:

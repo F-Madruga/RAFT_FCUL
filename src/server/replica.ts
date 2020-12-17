@@ -1,37 +1,57 @@
 import Promise from 'bluebird';
-import axios from 'axios';
+import axios, { CancelTokenSource, CancelToken } from 'axios';
+import { EventEmitter } from 'events';
 
+import { Event } from '../utils/constants.util';
 import logger from '../utils/log.util';
 import {
-  RPCMethod,
   RPCAppendEntriesRequest,
   RPCAppendEntriesResponse,
+  RPCMethod,
   RPCRequestVoteRequest,
   RPCRequestVoteResponse,
 } from '../utils/rpc.util';
+import { RaftState, State } from './state';
 import { LogEntry } from './log';
 
 export type ReplicaOptions = {
   host: string,
   port: number,
-  lastLogIndex: number,
+  state: State,
+  heartbeatTimeout?: number;
 };
 
-export class Replica {
+export class Replica extends EventEmitter {
   private _host: string;
-
   private _port: number;
-
   private _nextIndex: number;
-
   private _matchIndex: number;
+  private _timer?: NodeJS.Timeout;
+  private _state: State;
+  private _timeout: number;
+  private _sending: boolean;
+  private _requesting: CancelTokenSource;
 
   constructor(options: ReplicaOptions) {
+    super();
     this._host = options.host;
     this._port = options.port;
-    this._nextIndex = options.lastLogIndex + 1;
+    this._nextIndex = 1;
     this._matchIndex = 0;
+    this._state = options.state;
+    this._timeout = options.heartbeatTimeout || 50;
+    this._sending = false;
+    this._requesting = axios.CancelToken.source();
   }
+
+  private RPCRequest = <T>(url: string, data: any, cancelToken?: CancelToken) => Promise
+    .resolve(axios.post(url, data, { ...(cancelToken ? { cancelToken } : {}) }))
+    .then<T>((response) => response.data);
+
+  public init = () => {
+    this._nextIndex = this._state.log.getLastEntry().index + 1;
+    // this._nextIndex = lastLogIndex + 1;
+  };
 
   public get host() : string {
     return this._host;
@@ -41,62 +61,118 @@ export class Replica {
     return this._port;
   }
 
-  public get nextIndex() : number {
-    return this._nextIndex;
+  public get matchIndex() {
+    return this._matchIndex || 0;
   }
 
-  public get matchIndex() : number {
-    return this._matchIndex;
+  public set matchIndex(value: number) {
+    this._matchIndex = value;
+    this.emit(Event.MATCH_INDEX_CHANGED, value);
   }
 
-  public set nextIndex(leaderLastIndex : number) {
-    this._nextIndex = leaderLastIndex + 1;
-  }
+  public toString = () => `${this._host}:${this._port}`;
 
-  private RPCRequest = <T>(url: string, data: any) => Promise.resolve(axios.post(url, data))
-    .then<T>((response) => response.data);
+  public start = () => {
+    this.stop();
+    this._timer = setTimeout(() => this.heartbeat(), this._timeout);
+  };
 
-  public requestVote = (term: number, candidateId: string,
-    lastLogIndex: number, lastLogTerm: number) => {
+  public stop = () => {
+    if (this._timer) {
+      clearTimeout(this._timer);
+      this._timer = undefined;
+    }
+  };
+
+  public heartbeat = () => {
+    this.start();
+    this._sending = false;
+    // logger.debug(`Leader = ${this._state.leader}, VOTED_FOR = ${this._state.votedFor}, TERM = ${this._state.currentTerm}`);
+    return this.appendEntries();
+  };
+
+  public requestVote = (candidateId: string) => {
+    const lastEntry = this._state.log.getLastEntry();
     logger.debug(`Requesting vote to ${this._host}`);
     const request: RPCRequestVoteRequest = {
       method: RPCMethod.REQUEST_VOTE_REQUEST,
-      term,
+      term: this._state.currentTerm,
       candidateId,
-      lastLogIndex,
-      lastLogTerm,
+      lastLogIndex: lastEntry.index,
+      lastLogTerm: lastEntry.term,
     };
-    return this.RPCRequest<RPCRequestVoteResponse>(`http://${this._host}:${this._port}`, request);
+    return this.RPCRequest<RPCRequestVoteResponse>(`http://${this.toString()}`, request);
   };
 
-  public appendEntries = (term: number, leaderId: string, prevLogTerm: number,
-    leaderCommit: number, log: LogEntry[],
-    lastLogIndex: number = this._nextIndex - 1): Promise<RPCAppendEntriesResponse> => {
-    this._nextIndex = lastLogIndex + 1;
-    // logger.debug(`Sending entries to ${this._host}: ${this._nextIndex}, ${this._matchIndex}`);
+  public appendEntries = (): any => {
+    if (this._sending) {
+      return undefined;
+    }
+    this._sending = true;
+    this.start();
+    // if (!this.alive) {
+    //   logger.debug(`BEFORE_SLICE: NEXT_INDEX = ${this._nextIndex}, MATCH_INDEX = ${this._matchIndex}, LOG_LENGTH = ${this._state.log.length}, FOUND_LAST = ${this._state.getLogEntry(this._matchIndex) ? 'found' : 'not found'}`);
+    // }
+    const entries = this._state.log.slice(this._nextIndex);
+    const previousEntry = this._state.log.getEntryByIndex(this._nextIndex - 1) || {
+      term: 0,
+      index: 0,
+    } as LogEntry;
     const request: RPCAppendEntriesRequest = {
       method: RPCMethod.APPEND_ENTRIES_REQUEST,
-      term,
-      leaderId,
-      entries: log.slice((log[this._nextIndex - 1] || {}).index || 0, log.length),
-      prevLogIndex: (log[this._nextIndex - 1] || {}).index || 0,
-      prevLogTerm,
-      leaderCommit,
+      term: this._state.currentTerm,
+      leaderId: this._state.leader,
+      prevLogIndex: previousEntry.index,
+      prevLogTerm: previousEntry.term,
+      entries,
+      leaderCommit: this._state.commitIndex,
     };
-    return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this._host}:${this._port}`, request)
-      .then((response) => {
-        if (this._nextIndex <= 0) {
-          this._nextIndex = this._matchIndex + 1;
-          return response;
+    // if (entries.length > 0) {
+    //   logger.debug(request);
+    // }
+    this._requesting.cancel();
+    this._requesting = axios.CancelToken.source();
+    return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this.toString()}`,
+      request, this._requesting.token)
+      .tap((response) => Promise.try(() => {
+        // if (!this.alive) {
+        //   logger.debug(request);
+        //   logger.debug(response);
+        // }
+        if (response.term <= this._state.currentTerm) {
+          if (response.success) {
+            if (entries.length > 0) {
+              this._nextIndex += entries.length;
+              this.matchIndex = this._nextIndex - 1; // this._matchIndex + entries.length;
+            }
+            // if (!this.alive) {
+            //   logger.debug(`NEXT_INDEX = ${this._nextIndex}, MATCH_INDEX = ${this._matchIndex}, LOG_LENGTH = ${this._state.log.length}, FOUND_LAST = ${this._state.getLogEntry(this._matchIndex) ? 'found' : 'not found'}`);
+            // }
+            return response;
+          }
+          if (this._nextIndex > this._matchIndex + 1) {
+            logger.debug(`Trying to send entries again to replica ${this._host}`);
+            this._nextIndex -= 1;
+            this._sending = false;
+            return this.appendEntries();
+          }
+          return Promise.reject(new Error());
         }
-        if (response.success === false) {
-          this._nextIndex -= 1;
-          logger.debug('Resending request');
-          return this.appendEntries(term, leaderId, prevLogTerm, leaderCommit, log);
-        }
-        this._matchIndex += request.entries.length;
-        this._nextIndex = this._matchIndex + 1;
+        this._state.state = RaftState.FOLLOWER;
+        this._state.setCurrentTerm(response.term);
         return response;
+      })
+        .then(() => {
+          this._sending = false;
+          const lastEntry = this._state.log.getLastEntry();
+          if (this._matchIndex < lastEntry.index) {
+          // logger.debug(`MATCH_INDEX = ${this._matchIndex}, LAST_ENTRY_INDEX = ${lastEntry.index}, REPLICA = ${this.toString()}`);
+            return this.appendEntries();
+          }
+          return response;
+        }))
+      .catch(() => {
+        this._sending = false;
       });
   };
 }

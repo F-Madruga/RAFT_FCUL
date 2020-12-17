@@ -2,7 +2,7 @@
 ARG ENV=production
 ARG WORK_DIR=/home/node/app
 # builder image
-FROM node:12.18.2-alpine AS builder
+FROM node:14.15.1-alpine AS builder
 ARG ENV
 ENV NODE_ENV=$ENV
 ARG NPM_TOKEN
@@ -18,7 +18,7 @@ COPY ./src/utils $WORK_DIR/src/utils
 RUN npm run build:server --silent
 RUN npm prune --production
 # final image
-FROM node:12.18.2-alpine
+FROM node:14.15.1-alpine
 ARG ENV
 ENV NODE_ENV=$ENV
 ARG WORK_DIR
@@ -26,4 +26,6 @@ WORKDIR $WORK_DIR
 COPY --from=builder $WORK_DIR/node_modules $WORK_DIR/node_modules
 COPY --from=builder $WORK_DIR/dist $WORK_DIR/dist
 COPY --from=builder $WORK_DIR/package*.json $WORK_DIR/
+# RUN apk add --update sqlite
+# RUN apk add --update postgresql-client
 CMD [ "npm", "run", "start:server", "--silent" ]
