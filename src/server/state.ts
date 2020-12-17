@@ -2,8 +2,8 @@ import { EventEmitter } from 'events';
 
 import logger from '../utils/log.util';
 import { Event } from '../utils/constants.util';
-import { LogEntry } from './log';
-import { ready, State as StateModel, Log as LogModel } from './database';
+import { Log } from './log';
+import { ready, State as StateModel } from './database';
 import { IRaftStore } from './store';
 
 export enum RaftState {
@@ -26,7 +26,7 @@ export class State extends EventEmitter {
   // Persistent state on all servers
   private _currentTerm: number = 0;
   private _votedFor?: string;
-  private _log: LogEntry[] = [];
+  private _log: Log;
   // Volatile state on all servers
   private _commitIndex: number;
   private _lastApplied: number;
@@ -40,6 +40,7 @@ export class State extends EventEmitter {
     this._state = options.state || RaftState.FOLLOWER;
     this._leader = options.leader || '';
     // Persistent state on all servers
+    this._log = new Log();
     this._ready = ready
       .then(() => StateModel.findOne({ raw: true }))
       .catch(() => undefined)
@@ -51,8 +52,7 @@ export class State extends EventEmitter {
         this._currentTerm = state.currentTerm;
         this._votedFor = state.votedFor;
       })
-      .then(() => LogModel.findAll({ raw: true }))
-      .then((logs) => { this._log = logs as any[]; })
+      .then(() => this._log.ready)
       .tap(() => logger.debug(`Database synched: ${this.toString()}`))
       .tapCatch((e) => logger.error(`Error preparing State: ${e.message}`))
       .catch(() => process.exit(1));
@@ -119,40 +119,6 @@ export class State extends EventEmitter {
     return this._log;
   }
 
-  public getLastLogEntry = () => (this._log[this._log.length - 1] || {
-    term: 0,
-    index: 0,
-  } as LogEntry);
-
-  public getLogEntry = (index: number) => this._log.find((entry) => entry.index === index);
-
-  /**
-   * Slice with inclusive end
-   * @param end Inclusive end
-   */
-  public logSlice = (start: number, end?: number) => {
-    const startIndex = this._log.findIndex((e) => e.index === start);
-    const endIndex = end !== undefined
-      ? this._log.findIndex((e) => e.index === end) : undefined;
-    if (startIndex >= 0 && (endIndex || 0) >= 0) {
-      return this._log.slice(startIndex, endIndex ? endIndex + 1 : undefined);
-    }
-    return [];
-  };
-
-  public addLogEntry = (entry: LogEntry) => {
-    if (this._log.length > 0
-      && this._log[this._log.length - 1].index >= entry.index) {
-      const i = this._log.findIndex((e) => e.index === entry.index);
-      this._log[i] = entry;
-      return ready.then(() => LogModel.update(entry, { where: { index: entry.index } }))
-        .then(() => undefined);
-    }
-    this._log.push(entry);
-    return ready.then(() => LogModel.create(entry))
-      .then(() => undefined);
-  };
-
   public get commitIndex() {
     return this._commitIndex;
   }
@@ -173,7 +139,7 @@ export class State extends EventEmitter {
     return this._ready;
   }
 
-  public toString = () => `State = ${this._state}, CurrentTerm = ${this._currentTerm}, LastLogEntryIndex = ${this.getLastLogEntry().index}, CommitIndex = ${this._commitIndex}, LastApplied = ${this._lastApplied}`;
+  public toString = () => `State = ${this._state}, CurrentTerm = ${this._currentTerm}, LastLogEntryIndex = ${this._log.getLastEntry().index}, CommitIndex = ${this._commitIndex}, LastApplied = ${this._lastApplied}`;
 
   public isRead = (message: string) => this._store.isRead(message);
 

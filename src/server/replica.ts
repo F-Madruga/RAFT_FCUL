@@ -48,7 +48,7 @@ export class Replica extends EventEmitter {
     .then<T>((response) => response.data);
 
   public init = () => {
-    this._nextIndex = this._state.getLastLogEntry().index + 1;
+    this._nextIndex = this._state.log.getLastEntry().index + 1;
     // this._nextIndex = lastLogIndex + 1;
   };
 
@@ -86,13 +86,12 @@ export class Replica extends EventEmitter {
   public heartbeat = () => {
     this.start();
     this._sending = false;
-    this._requesting.cancel();
     // logger.debug(`Leader = ${this._state.leader}, VOTED_FOR = ${this._state.votedFor}, TERM = ${this._state.currentTerm}`);
     return this.appendEntries();
   };
 
   public requestVote = (candidateId: string) => {
-    const lastEntry = this._state.getLastLogEntry();
+    const lastEntry = this._state.log.getLastEntry();
     logger.debug(`Requesting vote to ${this._host}`);
     const request: RPCRequestVoteRequest = {
       method: RPCMethod.REQUEST_VOTE_REQUEST,
@@ -113,8 +112,8 @@ export class Replica extends EventEmitter {
     // if (!this.alive) {
     //   logger.debug(`BEFORE_SLICE: NEXT_INDEX = ${this._nextIndex}, MATCH_INDEX = ${this._matchIndex}, LOG_LENGTH = ${this._state.log.length}, FOUND_LAST = ${this._state.getLogEntry(this._matchIndex) ? 'found' : 'not found'}`);
     // }
-    const entries = this._state.logSlice(this._nextIndex);
-    const previousEntry = this._state.getLogEntry(this._nextIndex - 1) || {
+    const entries = this._state.log.slice(this._nextIndex);
+    const previousEntry = this._state.log.getEntryByIndex(this._nextIndex - 1) || {
       term: 0,
       index: 0,
     } as LogEntry;
@@ -130,8 +129,9 @@ export class Replica extends EventEmitter {
     // if (entries.length > 0) {
     //   logger.debug(request);
     // }
+    this._requesting.cancel();
     this._requesting = this.RPCRequest<RPCAppendEntriesResponse>(`http://${this.toString()}`, request)
-      .tap((response) => {
+      .tap((response) => Promise.try(() => {
         // if (!this.alive) {
         //   logger.debug(request);
         //   logger.debug(response);
@@ -159,19 +159,17 @@ export class Replica extends EventEmitter {
         this._state.setCurrentTerm(response.term);
         return response;
       })
-      .then((response) => {
-        this._sending = false;
-        const lastEntry = this._state.getLastLogEntry();
-        if (this._matchIndex < lastEntry.index) {
+        .then(() => {
+          this._sending = false;
+          const lastEntry = this._state.log.getLastEntry();
+          if (this._matchIndex < lastEntry.index) {
           // logger.debug(`MATCH_INDEX = ${this._matchIndex}, LAST_ENTRY_INDEX = ${lastEntry.index}, REPLICA = ${this.toString()}`);
-          return this.appendEntries();
-        }
-        return response;
-      })
+            return this.appendEntries();
+          }
+          return response;
+        }))
       .catch(() => {
         this._sending = false;
-        // this.alive = false;
-        // logger.debug(request);
       });
     return this._requesting;
   };
