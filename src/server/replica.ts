@@ -1,5 +1,5 @@
 import Promise from 'bluebird';
-import axios from 'axios';
+import axios, { CancelTokenSource, CancelToken } from 'axios';
 import { EventEmitter } from 'events';
 
 import { Event } from '../utils/constants.util';
@@ -30,7 +30,7 @@ export class Replica extends EventEmitter {
   private _state: State;
   private _timeout: number;
   private _sending: boolean;
-  private _requesting: Promise<any>;
+  private _requesting: CancelTokenSource;
 
   constructor(options: ReplicaOptions) {
     super();
@@ -41,10 +41,11 @@ export class Replica extends EventEmitter {
     this._state = options.state;
     this._timeout = options.heartbeatTimeout || 50;
     this._sending = false;
-    this._requesting = Promise.resolve();
+    this._requesting = axios.CancelToken.source();
   }
 
-  private RPCRequest = <T>(url: string, data: any) => Promise.resolve(axios.post(url, data))
+  private RPCRequest = <T>(url: string, data: any, cancelToken?: CancelToken) => Promise
+    .resolve(axios.post(url, data, { ...(cancelToken ? { cancelToken } : {}) }))
     .then<T>((response) => response.data);
 
   public init = () => {
@@ -130,7 +131,9 @@ export class Replica extends EventEmitter {
     //   logger.debug(request);
     // }
     this._requesting.cancel();
-    this._requesting = this.RPCRequest<RPCAppendEntriesResponse>(`http://${this.toString()}`, request)
+    this._requesting = axios.CancelToken.source();
+    return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this.toString()}`,
+      request, this._requesting.token)
       .tap((response) => Promise.try(() => {
         // if (!this.alive) {
         //   logger.debug(request);
@@ -171,6 +174,5 @@ export class Replica extends EventEmitter {
       .catch(() => {
         this._sending = false;
       });
-    return this._requesting;
   };
 }
