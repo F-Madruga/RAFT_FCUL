@@ -1,3 +1,5 @@
+import { ready, Log as LogModel } from './database';
+
 export type LogEntry = {
   timestamp: string,
   term: number,
@@ -8,18 +10,61 @@ export type LogEntry = {
   operationId: string,
 };
 
-// export class Log {
-//   private _entries: LogEntry[] = [];
+export type LogOptions = {
+  entries?: LogEntry[];
+};
 
-//   public addEntry = (entry: LogEntry) => {
-//     this._entries.push(entry);
-//   };
+export class Log {
+  private _entries: LogEntry[];
 
-//   public get length() { return this._entries.length; }
+  private _ready: Promise<any>;
 
-//   public getLogEntry = (index: number) => this._entries[index];
+  constructor(options?: LogOptions) {
+    this._entries = (options || {}).entries || [];
+    this._ready = ready
+      .then(() => LogModel.findAll({ raw: true }))
+      .then((entries) => { this._entries = entries as any[]; });
+  }
 
-//   public get isEmpty() { return this._entries.length <= 0; }
+  public get length() { return this._entries.length; }
 
-//   public get currentLeader() { return this._entries[this._entries.length - 1].leaderId; }
-// }
+  public get isEmpty() { return this._entries.length <= 0; }
+
+  public addEntry = (entry: LogEntry) => {
+    if (this._entries.length > 0
+      && this._entries[this._entries.length - 1].index >= entry.index) {
+      const i = this._entries.findIndex((e) => e.index === entry.index);
+      this._entries[i] = entry;
+      return ready.then(() => LogModel.update(entry, { where: { index: entry.index } }))
+        .then(() => undefined);
+    }
+    this._entries.push(entry);
+    return ready.then(() => LogModel.create(entry))
+      .then(() => undefined);
+  };
+
+  public getEntryByIndex = (index: number) => this._entries.find((e) => e.index === index);
+
+  public getLastEntry = () => (this._entries[this._entries.length - 1] || {
+    term: 0,
+    index: 0,
+  } as LogEntry);
+
+  /**
+   * Slice with inclusive end
+   * @param end Inclusive end
+   */
+  public slice = (start: number, end?: number) => {
+    const startIndex = this._entries.findIndex((e) => e.index === start);
+    const endIndex = end !== undefined
+      ? this._entries.findIndex((e) => e.index === end) : undefined;
+    if (startIndex >= 0 && (endIndex || 0) >= 0) {
+      return this._entries.slice(startIndex, endIndex ? endIndex + 1 : undefined);
+    }
+    return [];
+  };
+
+  public get ready() {
+    return this._ready;
+  }
+}
