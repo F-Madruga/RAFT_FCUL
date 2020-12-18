@@ -20,6 +20,7 @@ const { argv } = yargs(process.argv.slice(2)).options({
   minimumElectionTimeout: { type: 'number', alias: 'e' },
   maximumElectionTimeout: { type: 'number', alias: 'E' },
   heartbeatTimeout: { type: 'number', alias: 't' },
+  snapshotSize: { type: 'number', alias: 'n' },
 });
 load(argv.config || process.env.ENV_FILE || './config/.env-server');
 
@@ -36,6 +37,7 @@ const server = new RaftServer({
   heartbeatTimeout: parseInt(`${argv.heartbeatTimeout || ''}`
     || process.env.HEARTBEAT_TIMEOUT || '50', 10),
   store: new Store(),
+  snapshotSize: parseInt(`${argv.snapshotSize || ''}` || process.env.SNAPSHOT_SIZE || '10', 10),
 });
 
 const controlPort = parseInt(`${argv.controlPort || ''}` || process.env.CONTROL_PORT || '8082', 10);
