@@ -63,7 +63,7 @@ export class ReplicationManager extends EventEmitter {
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       term: this._state.currentTerm,
-      index: lastEntry.index + 1,
+      index: (lastEntry.index || this._state.lastIncludedIndex) + 1,
       data: request.message,
       clientId,
       operationId: nanoid(),
@@ -82,6 +82,7 @@ export class ReplicationManager extends EventEmitter {
       // if (this._state.log.length === 0) {
       //   logger.debug('APPEND_LOG_LENGTH IS EMPTY!!!!!!!!');
       // }
+      // logger.debug(request);
       if (request.term < this._state.currentTerm) {
         logger.debug(`REQUEST_TERM = ${request.term}, CURRENT_TERM = ${this._state.currentTerm}`);
         return false;

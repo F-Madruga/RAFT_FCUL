@@ -35,6 +35,7 @@ export type RaftServerOptions = {
   maximumElectionTimeout?: number,
   heartbeatTimeout?: number,
   store: IRaftStore,
+  snapshotSize?: number,
 };
 
 export class RaftServer extends EventEmitter {
@@ -55,6 +56,7 @@ export class RaftServer extends EventEmitter {
     this._serverPort = options.serverPort;
     this._state = new State({
       store: options.store,
+      snapshotSize: options.snapshotSize,
     });
     this._host = new Replica({
       state: this._state,
@@ -85,7 +87,6 @@ export class RaftServer extends EventEmitter {
     });
     this._snapshotManager = new SnapshotManager({
       state: this._state,
-      host: this._host,
       replicas: this._replicas,
     });
     this._state.ready.then(() => {

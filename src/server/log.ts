@@ -1,3 +1,6 @@
+import { Op } from 'sequelize';
+
+import logger from '../utils/log.util';
 import { ready, Log as LogModel } from './database';
 
 export type LogEntry = {
@@ -26,6 +29,10 @@ export class Log {
       .then((entries) => { this._entries = entries as any[]; });
   }
 
+  public get entries() {
+    return this._entries;
+  }
+
   public get length() { return this._entries.length; }
 
   public get isEmpty() { return this._entries.length <= 0; }
@@ -38,6 +45,7 @@ export class Log {
       return ready.then(() => LogModel.update(entry, { where: { index: entry.index } }))
         .then(() => undefined);
     }
+    logger.debug(`ADDING_ENTRY_INDEX = ${entry.index}`);
     this._entries.push(entry);
     return ready.then(() => LogModel.create(entry))
       .then(() => undefined);
@@ -67,6 +75,7 @@ export class Log {
   public truncate = (lastIndex: number) => {
     const endIndex = this._entries.findIndex((e) => e.index === lastIndex);
     this._entries = this._entries.slice(endIndex === -1 ? 0 : endIndex + 1);
+    return LogModel.destroy({ where: { index: { [Op.lte]: lastIndex } } });
   };
 
   public get ready() {
