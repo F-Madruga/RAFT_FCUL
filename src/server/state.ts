@@ -1,14 +1,10 @@
 import { EventEmitter } from 'events';
-import fs from 'fs';
-import path from 'path';
 
 import logger from '../utils/log.util';
 import { Event } from '../utils/constants.util';
 import { Log, LogEntry } from './log';
-import { ready, State as StateModel } from './database';
+import { ready, State as StateModel, Snapshot as SnapshotModel } from './database';
 import { IRaftStore } from './store';
-
-export const snapshotFileName = path.resolve(__dirname, './snapshot.json');
 
 export enum RaftState {
   LEADER = 'LEADER',
@@ -19,7 +15,7 @@ export enum RaftState {
 export type Snapshot = {
   lastIncludedIndex: number,
   lastIncludedTerm: number,
-  data: any,
+  data: { [key: string]: string },
 };
 
 export type StateOptions = {
@@ -28,6 +24,7 @@ export type StateOptions = {
   state?: RaftState,
   leader?: string,
   store: IRaftStore,
+  snapshotSize?: number,
 };
 
 export class State extends EventEmitter {
@@ -44,6 +41,10 @@ export class State extends EventEmitter {
   // private _replicas: Replica[];
   private _store: IRaftStore;
   private _ready: Promise<any>;
+  private _lastIncludedIndex: number = 0;
+  private _lastIncludedTerm: number = 0;
+  private _snapshot: { [key: string]: string } = {};
+  private _snapshotSize: number;
 
   constructor(options: StateOptions) {
     super();
@@ -57,12 +58,20 @@ export class State extends EventEmitter {
       .then((state: any) => state || StateModel.create({
         currentTerm: 0,
         votedFor: undefined,
+        lastIncludedIndex: 0,
+        lastIncludedTerm: 0,
       }, { raw: true }))
       .then((state) => {
         this._currentTerm = state.currentTerm;
         this._votedFor = state.votedFor;
+        this._lastIncludedIndex = state.lastIncludedIndex;
+        this._lastIncludedTerm = state.lastIncludedTerm;
       })
       .then(() => this._log.ready)
+      .then(() => SnapshotModel.findAll({ raw: true }))
+      .then((rows) => {
+        this._snapshot = rows.reduce((acc, { key, value }: any) => ({ ...acc, [key]: value }), {});
+      })
       .tap(() => logger.debug(`Database synched: ${this.toString()}`))
       .tapCatch((e) => logger.error(`Error preparing State: ${e.message}`))
       .catch(() => process.exit(1));
@@ -71,7 +80,7 @@ export class State extends EventEmitter {
     this._lastApplied = 0;
     // Volatile state on leaders
     this._store = options.store;
-    // TODO: recover snapshot
+    this._snapshotSize = options.snapshotSize || 100;
   }
 
   public get state() {
@@ -146,6 +155,14 @@ export class State extends EventEmitter {
     this._lastApplied = value;
   }
 
+  public get lastIncludedIndex() {
+    return this._lastIncludedIndex;
+  }
+
+  public get lastIncludedTerm() {
+    return this._lastIncludedTerm;
+  }
+
   public get ready() {
     return this._ready;
   }
@@ -158,32 +175,48 @@ export class State extends EventEmitter {
     const response = this._store.apply(message);
     if (increment !== false) {
       this._lastApplied += 1;
+      if (this._lastApplied % this._snapshotSize === 0) {
+        this.snapshot();
+      }
     }
     logger.debug(`LastApplied updated: ${this.toString()}`);
     return response;
   };
 
-  // TODO: write to snapshot file
-  public installSnapshot = (request: Snapshot) => request;
+  public installSnapshot = (request: Snapshot) => {
+    this._lastIncludedIndex = request.lastIncludedIndex;
+    this._lastIncludedTerm = request.lastIncludedTerm;
+    const state = {
+      lastIncludedIndex: request.lastIncludedIndex,
+      lastIncludedTerm: request.lastIncludedTerm,
+    };
+    const snapshot = Object.entries(request.data)
+      .map(([key, value]) => ({ key, value }));
+    return ready.then(() => StateModel.update(state, { where: {} }))
+      .then(() => SnapshotModel.destroy({ truncate: true }))
+      .then(() => SnapshotModel.bulkCreate(snapshot));
+  };
 
   public snapshot = () => {
-    // TODO: guarantee nothing is done while snapshotting
+    // TODO: guarantee nothing is done while building snapshot
     const data = this._store.snapshot();
     const lastEntry = this._log.getEntryByIndex(this._lastApplied) || ({
       term: 0,
       index: 0,
     } as LogEntry);
-    this._log.truncate(lastEntry.index);
-    fs.writeFileSync(snapshotFileName, JSON.stringify({
-      lastIncludedIndex: lastEntry.index,
-      lastIncludedTerm: lastEntry.term,
-      data,
-    }));
     const snapshot: Snapshot = {
       lastIncludedIndex: lastEntry.index,
       lastIncludedTerm: lastEntry.term,
       data,
     };
-    return snapshot;
+    return this._log.truncate(lastEntry.index)
+      .then(() => this.installSnapshot(snapshot))
+      .then(() => snapshot);
   };
+
+  public getSnapshot = (): Snapshot => ({
+    lastIncludedIndex: this._lastIncludedIndex,
+    lastIncludedTerm: this._lastIncludedTerm,
+    data: this._snapshot,
+  });
 }
