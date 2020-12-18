@@ -79,6 +79,14 @@ export const State = Client.define('State', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  lastIncludedIndex: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
+  lastIncludedTerm: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
 }, {
   tableName: 'state',
   timestamps: false,

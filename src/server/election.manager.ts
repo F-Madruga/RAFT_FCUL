@@ -71,9 +71,9 @@ export class ElectionManager extends EventEmitter {
     )
       .then(() => {
         logger.info(`Elected leader on term ${this._state.currentTerm}`);
+        this._replicas.map((replica) => replica.init());
         this._state.state = RaftState.LEADER;
         this._state.leader = this._host.host;
-        this._replicas.map((replica) => replica.init());
       })
       .catch(() => logger.debug('Not enough votes'));
     return result;
