@@ -1,6 +1,4 @@
 import { EventEmitter } from 'events';
-
-// import logger from '../utils/log.util';
 import { RPCInstallSnapshotRequest } from '../utils/rpc.util';
 import { State } from './state';
 import { Replica } from './replica';
@@ -28,7 +26,6 @@ export class SnapshotManager extends EventEmitter {
   });
 
   public snapshot = () => {
-    // const snapshot = this._state.snapshot();
     logger.debug(`New snapshot: ${this._state.toString()}`);
     return this._replicas.map((replica) => replica.installSnapshot());
   };
