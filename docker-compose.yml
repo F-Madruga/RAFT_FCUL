@@ -1,4 +1,4 @@
-version: "2.1"
+version: "2.4"
 
 services:
   database1:
@@ -19,8 +19,11 @@ services:
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 10
+      start_period: 10s
+    ports:
+      - "7001:3306"
 
   server1:
     build:
@@ -43,6 +46,10 @@ services:
         condition: service_healthy
       database5:
         condition: service_healthy
+    ports:
+      - "8011:8080"
+      - "8012:8081"
+      - "8013:8082"
     environment:
       - SERVERS=raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
       - HOST=raft_fcul_server_1
@@ -77,8 +84,11 @@ services:
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 10
+      start_period: 10s
+    ports:
+      - "7002:3306"
 
   server2:
     build:
@@ -101,6 +111,10 @@ services:
         condition: service_healthy
       database5:
         condition: service_healthy
+    ports:
+      - "8021:8080"
+      - "8022:8081"
+      - "8023:8082"
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
       - HOST=raft_fcul_server_2
@@ -135,8 +149,11 @@ services:
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 10
+      start_period: 10s
+    ports:
+      - "7003:3306"
 
   server3:
     build:
@@ -159,6 +176,10 @@ services:
         condition: service_healthy
       database5:
         condition: service_healthy
+    ports:
+      - "8031:8080"
+      - "8032:8081"
+      - "8033:8082"
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_4,raft_fcul_server_5
       - HOST=raft_fcul_server_3
@@ -193,8 +214,11 @@ services:
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 10
+      start_period: 10s
+    ports:
+      - "7004:3306"
 
   server4:
     build:
@@ -217,6 +241,10 @@ services:
         condition: service_healthy
       database5:
         condition: service_healthy
+    ports:
+      - "8041:8080"
+      - "8042:8081"
+      - "8043:8082"
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_5
       - HOST=raft_fcul_server_4
@@ -251,8 +279,11 @@ services:
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 10
+      start_period: 10s
+    ports:
+      - "7005:3306"
 
   server5:
     build:
@@ -275,6 +306,10 @@ services:
         condition: service_healthy
       database5:
         condition: service_healthy
+    ports:
+      - "8051:8080"
+      - "8052:8081"
+      - "8053:8082"
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4
       - HOST=raft_fcul_server_5
@@ -307,7 +342,7 @@ services:
       - PORT=8080
       - WEBSOCKET=false
       - INTERACTIVE=false
-      - PARALLEL_REQUESTS=1
+      - PARALLEL_REQUESTS=30
       - REQUEST_INTERVAL=5000
     depends_on:
       - server1

@@ -41,9 +41,9 @@ export class State extends EventEmitter {
   // private _replicas: Replica[];
   private _store: IRaftStore;
   private _ready: Promise<any>;
-  private _lastIncludedIndex: number = 0;
-  private _lastIncludedTerm: number = 0;
-  private _snapshot: { [key: string]: string } = {};
+  private _lastIncludedIndex: number;
+  private _lastIncludedTerm: number;
+  private _snapshot: { [key: string]: string };
   private _snapshotSize: number;
 
   constructor(options: StateOptions) {
@@ -80,6 +80,9 @@ export class State extends EventEmitter {
     this._lastApplied = 0;
     // Volatile state on leaders
     this._store = options.store;
+    this._lastIncludedIndex = 0;
+    this._lastIncludedTerm = 0;
+    this._snapshot = {};
     this._snapshotSize = options.snapshotSize || 100;
   }
 
@@ -186,15 +189,20 @@ export class State extends EventEmitter {
   public installSnapshot = (request: Snapshot) => {
     this._lastIncludedIndex = request.lastIncludedIndex;
     this._lastIncludedTerm = request.lastIncludedTerm;
+    this._snapshot = request.data;
+    this._lastApplied = request.lastIncludedIndex;
     const state = {
       lastIncludedIndex: request.lastIncludedIndex,
       lastIncludedTerm: request.lastIncludedTerm,
     };
     const snapshot = Object.entries(request.data)
       .map(([key, value]) => ({ key, value }));
-    return ready.then(() => StateModel.update(state, { where: {} }))
-      .then(() => SnapshotModel.destroy({ truncate: true }))
-      .then(() => SnapshotModel.bulkCreate(snapshot));
+    return ready
+      .then(() => this._log.truncate(request.lastIncludedIndex))
+      .then(() => StateModel.update(state, { where: {} }))
+      .then(() => SnapshotModel.destroy({ where: {} }))
+      .then(() => SnapshotModel.bulkCreate(snapshot))
+      .then(() => logger.debug(`Snapshot done: ${this.toString()}`));
   };
 
   public snapshot = () => {
@@ -209,8 +217,7 @@ export class State extends EventEmitter {
       lastIncludedTerm: lastEntry.term,
       data,
     };
-    return this._log.truncate(lastEntry.index)
-      .then(() => this.installSnapshot(snapshot))
+    return this.installSnapshot(snapshot)
       .then(() => snapshot);
   };
 
