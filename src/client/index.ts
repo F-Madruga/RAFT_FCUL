@@ -56,7 +56,7 @@ const handler = (response: string) => {
       console.log(`    Key: ${key}\n    Value: ${value}`);
       break;
     case 'list_response':
-      console.log(Object.entries(JSON.parse(list))
+      console.log(Object.entries(list)
         .map(([k, v]) => `    Key: ${k}\n    Value: ${v}`)
         .join('\n'));
       break;
@@ -123,6 +123,10 @@ async function* interactiveGenerator() {
       .then((answers) => {
         const request = JSON.stringify({
           command: answers.command,
+          ...(answers.key ? { key: answers.key } : {}),
+          ...(answers.value ? { value: answers.value } : {}),
+          ...(answers.vOld ? { vOld: answers.vOld } : {}),
+          ...(answers.vNew ? { vNew: answers.vNew } : {}),
         });
         logger.debug(`Sending request: ${request}`);
         console.log(chalk.green(({
