@@ -59,6 +59,7 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
+      - SNAPSHOT_SIZE=100
       - DATABASE_NAME=raft_fcul
       - DATABASE_USERNAME=user_with_big_pp
       - DATABASE_PASSWORD=send_bobs
@@ -124,6 +125,7 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
+      - SNAPSHOT_SIZE=100
       - DATABASE_NAME=raft_fcul
       - DATABASE_USERNAME=user_with_big_pp
       - DATABASE_PASSWORD=send_bobs
@@ -189,6 +191,7 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
+      - SNAPSHOT_SIZE=100
       - DATABASE_NAME=raft_fcul
       - DATABASE_USERNAME=user_with_big_pp
       - DATABASE_PASSWORD=send_bobs
@@ -254,6 +257,7 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
+      - SNAPSHOT_SIZE=100
       - DATABASE_NAME=raft_fcul
       - DATABASE_USERNAME=user_with_big_pp
       - DATABASE_PASSWORD=send_bobs
@@ -319,6 +323,7 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
+      - SNAPSHOT_SIZE=100
       - DATABASE_NAME=raft_fcul
       - DATABASE_USERNAME=user_with_big_pp
       - DATABASE_PASSWORD=send_bobs
@@ -337,13 +342,35 @@ services:
       - raft_fcul_network
     environment:
       - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
-      - LOG_LEVEL=debug
-      # - LOG_LEVEL=silent
+      - LOG_LEVEL=debug # silent
       - PORT=8080
       - WEBSOCKET=false
       - INTERACTIVE=false
-      - PARALLEL_REQUESTS=30
-      - REQUEST_INTERVAL=5000
+      - PARALLEL_REQUESTS=3 # 30
+      - REQUEST_INTERVAL=700 # 5000
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+
+  client_interactive:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.client
+    image: raft_fcul_client
+    container_name: raft_fcul_client_interactive
+    stdin_open: true
+    tty: true
+    networks:
+      - raft_fcul_network
+    environment:
+      - SERVERS=raft_fcul_server_1,raft_fcul_server_2,raft_fcul_server_3,raft_fcul_server_4,raft_fcul_server_5
+      - LOG_LEVEL=debug
+      - PORT=8080
+      - WEBSOCKET=false
+      - INTERACTIVE=true
     depends_on:
       - server1
       - server2

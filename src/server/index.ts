@@ -37,7 +37,7 @@ const server = new RaftServer({
   heartbeatTimeout: parseInt(`${argv.heartbeatTimeout || ''}`
     || process.env.HEARTBEAT_TIMEOUT || '50', 10),
   store: new Store(),
-  snapshotSize: parseInt(`${argv.snapshotSize || ''}` || process.env.SNAPSHOT_SIZE || '10', 10),
+  snapshotSize: parseInt(`${argv.snapshotSize || ''}` || process.env.SNAPSHOT_SIZE || '100', 10),
 });
 
 const controlPort = parseInt(`${argv.controlPort || ''}` || process.env.CONTROL_PORT || '8082', 10);
