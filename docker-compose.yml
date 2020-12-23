@@ -59,7 +59,7 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - SNAPSHOT_SIZE=100
+      - SNAPSHOT_SIZE=10
       - DATABASE_NAME=raft_fcul
       - DATABASE_USERNAME=user_with_big_pp
       - DATABASE_PASSWORD=send_bobs
@@ -125,7 +125,7 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - SNAPSHOT_SIZE=100
+      - SNAPSHOT_SIZE=10
       - DATABASE_NAME=raft_fcul
       - DATABASE_USERNAME=user_with_big_pp
       - DATABASE_PASSWORD=send_bobs
@@ -191,7 +191,7 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - SNAPSHOT_SIZE=100
+      - SNAPSHOT_SIZE=10
       - DATABASE_NAME=raft_fcul
       - DATABASE_USERNAME=user_with_big_pp
       - DATABASE_PASSWORD=send_bobs
@@ -257,7 +257,7 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - SNAPSHOT_SIZE=100
+      - SNAPSHOT_SIZE=10
       - DATABASE_NAME=raft_fcul
       - DATABASE_USERNAME=user_with_big_pp
       - DATABASE_PASSWORD=send_bobs
@@ -323,7 +323,7 @@ services:
       - MINIMUM_ELECTION_TIMEOUT=150
       - MAXIMUM_ELECTION_TIMEOUT=300
       - HEARTBEAT_TIMEOUT=50
-      - SNAPSHOT_SIZE=100
+      - SNAPSHOT_SIZE=10
       - DATABASE_NAME=raft_fcul
       - DATABASE_USERNAME=user_with_big_pp
       - DATABASE_PASSWORD=send_bobs
@@ -346,8 +346,8 @@ services:
       - PORT=8080
       - WEBSOCKET=false
       - INTERACTIVE=false
-      - PARALLEL_REQUESTS=3 # 30
-      - REQUEST_INTERVAL=700 # 5000
+      - PARALLEL_REQUESTS=1 # 3
+      - REQUEST_INTERVAL=5000 # 700
     depends_on:
       - server1
       - server2
