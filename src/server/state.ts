@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-
+import { Mutex } from 'async-mutex';
 import logger from '../utils/log.util';
 import { Event } from '../utils/constants.util';
 import { Log, LogEntry } from './log';
@@ -41,10 +41,12 @@ export class State extends EventEmitter {
   // private _replicas: Replica[];
   private _store: IRaftStore;
   private _ready: Promise<any>;
-  private _lastIncludedIndex: number = 0;
-  private _lastIncludedTerm: number = 0;
-  private _snapshot: { [key: string]: string } = {};
+  private _lastIncludedIndex: number;
+  private _lastIncludedTerm: number;
+  private _snapshot: { [key: string]: string };
   private _snapshotSize: number;
+  private _mutex: Mutex;
+  private _snapshotting: Promise<any>;
 
   constructor(options: StateOptions) {
     super();
@@ -66,11 +68,14 @@ export class State extends EventEmitter {
         this._votedFor = state.votedFor;
         this._lastIncludedIndex = state.lastIncludedIndex;
         this._lastIncludedTerm = state.lastIncludedTerm;
+        this._lastApplied = state.lastIncludedIndex;
       })
       .then(() => this._log.ready)
       .then(() => SnapshotModel.findAll({ raw: true }))
       .then((rows) => {
-        this._snapshot = rows.reduce((acc, { key, value }: any) => ({ ...acc, [key]: value }), {});
+        const data = rows.reduce((acc, { key, value }: any) => ({ ...acc, [key]: value }), {});
+        this._snapshot = data;
+        this._store.install(data);
       })
       .tap(() => logger.debug(`Database synched: ${this.toString()}`))
       .tapCatch((e) => logger.error(`Error preparing State: ${e.message}`))
@@ -80,7 +85,12 @@ export class State extends EventEmitter {
     this._lastApplied = 0;
     // Volatile state on leaders
     this._store = options.store;
+    this._lastIncludedIndex = 0;
+    this._lastIncludedTerm = 0;
+    this._snapshot = {};
     this._snapshotSize = options.snapshotSize || 100;
+    this._mutex = new Mutex();
+    this._snapshotting = Promise.resolve();
   }
 
   public get state() {
@@ -171,7 +181,7 @@ export class State extends EventEmitter {
 
   public isRead = (message: string) => this._store.isRead(message);
 
-  public apply = (message: string, increment?: boolean) => {
+  public apply = (message: string, increment?: boolean) => this._snapshotting.then(() => {
     const response = this._store.apply(message);
     if (increment !== false) {
       this._lastApplied += 1;
@@ -181,38 +191,47 @@ export class State extends EventEmitter {
     }
     logger.debug(`LastApplied updated: ${this.toString()}`);
     return response;
-  };
+  });
 
   public installSnapshot = (request: Snapshot) => {
     this._lastIncludedIndex = request.lastIncludedIndex;
     this._lastIncludedTerm = request.lastIncludedTerm;
+    this._snapshot = request.data;
+    this._lastApplied = request.lastIncludedIndex;
     const state = {
       lastIncludedIndex: request.lastIncludedIndex,
       lastIncludedTerm: request.lastIncludedTerm,
     };
     const snapshot = Object.entries(request.data)
       .map(([key, value]) => ({ key, value }));
-    return ready.then(() => StateModel.update(state, { where: {} }))
-      .then(() => SnapshotModel.destroy({ truncate: true }))
-      .then(() => SnapshotModel.bulkCreate(snapshot));
+    this._store.install(request.data);
+    return ready
+      .then(() => this._log.truncate(request.lastIncludedIndex))
+      .then(() => StateModel.update(state, { where: {} }))
+      .then(() => SnapshotModel.destroy({ where: {} }))
+      .then(() => SnapshotModel.bulkCreate(snapshot))
+      .then(() => logger.debug(`Snapshot done: ${this.toString()}`));
   };
 
-  public snapshot = () => {
-    // TODO: guarantee nothing is done while building snapshot
-    const data = this._store.snapshot();
-    const lastEntry = this._log.getEntryByIndex(this._lastApplied) || ({
-      term: 0,
-      index: 0,
-    } as LogEntry);
-    const snapshot: Snapshot = {
-      lastIncludedIndex: lastEntry.index,
-      lastIncludedTerm: lastEntry.term,
-      data,
-    };
-    return this._log.truncate(lastEntry.index)
-      .then(() => this.installSnapshot(snapshot))
-      .then(() => snapshot);
-  };
+  public snapshot = () => this._mutex.runExclusive(() => {
+    this._snapshotting = new Promise<Snapshot>((resolve) => {
+      const data = this._store.snapshot();
+      const lastEntry = this._log.getEntryByIndex(this._lastApplied) || ({
+        term: 0,
+        index: 0,
+      } as LogEntry);
+      const snapshot: Snapshot = {
+        lastIncludedIndex: lastEntry.index,
+        lastIncludedTerm: lastEntry.term,
+        data,
+      };
+      return this.installSnapshot(snapshot)
+        .then(() => snapshot)
+        .tap(() => resolve(snapshot))
+        .tapCatch(() => resolve(snapshot));
+    });
+    return this._snapshotting;
+  });
 
   public getSnapshot = (): Snapshot => ({
     lastIncludedIndex: this._lastIncludedIndex,

@@ -51,7 +51,6 @@ export class Replica extends EventEmitter {
 
   public init = () => {
     this._nextIndex = this._state.log.getLastEntry().index + 1;
-    // this._nextIndex = lastLogIndex + 1;
   };
 
   public get host() : string {
@@ -88,7 +87,6 @@ export class Replica extends EventEmitter {
   public heartbeat = () => {
     this.start();
     this._sending = false;
-    // logger.debug(`Leader = ${this._state.leader}, VOTED_FOR = ${this._state.votedFor}, TERM = ${this._state.currentTerm}`);
     return this.appendEntries();
   };
 
@@ -111,9 +109,6 @@ export class Replica extends EventEmitter {
     }
     this._sending = true;
     this.start();
-    // if (!this.alive) {
-    //   logger.debug(`BEFORE_SLICE: NEXT_INDEX = ${this._nextIndex}, MATCH_INDEX = ${this._matchIndex}, LOG_LENGTH = ${this._state.log.length}, FOUND_LAST = ${this._state.getLogEntry(this._matchIndex) ? 'found' : 'not found'}`);
-    // }
     return Promise.resolve(this._nextIndex >= ((this._state.log.entries[0] || {}).index || 0)
       ? this._state.log.slice(this._nextIndex)
       : this.installSnapshot()
@@ -132,27 +127,17 @@ export class Replica extends EventEmitter {
           entries,
           leaderCommit: this._state.commitIndex,
         };
-        // if (entries.length > 0) {
-        //   logger.debug(request);
-        // }
         this._requesting.cancel();
         this._requesting = axios.CancelToken.source();
         return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this.toString()}`,
           request, this._requesting.token)
           .tap((response) => Promise.try(() => {
-            // if (!this.alive) {
-            //   logger.debug(request);
-            //   logger.debug(response);
-            // }
             if (response.term <= this._state.currentTerm) {
               if (response.success) {
                 if (entries.length > 0) {
                   this._nextIndex += entries.length;
-                  this.matchIndex = this._nextIndex - 1; // this._matchIndex + entries.length;
+                  this.matchIndex = this._nextIndex - 1;
                 }
-                // if (!this.alive) {
-                //   logger.debug(`NEXT_INDEX = ${this._nextIndex}, MATCH_INDEX = ${this._matchIndex}, LOG_LENGTH = ${this._state.log.length}, FOUND_LAST = ${this._state.getLogEntry(this._matchIndex) ? 'found' : 'not found'}`);
-                // }
                 return response;
               }
               if (this._nextIndex > this._matchIndex + 1) {
@@ -161,7 +146,9 @@ export class Replica extends EventEmitter {
                 this._sending = false;
                 return this.appendEntries();
               }
-              return Promise.reject(new Error());
+              this._nextIndex = 0;
+              this._sending = false;
+              return this.appendEntries();
             }
             this._state.state = RaftState.FOLLOWER;
             this._state.setCurrentTerm(response.term);
@@ -171,7 +158,6 @@ export class Replica extends EventEmitter {
               this._sending = false;
               const lastEntry = this._state.log.getLastEntry();
               if (this._matchIndex < lastEntry.index) {
-                // logger.debug(`MATCH_INDEX = ${this._matchIndex}, LAST_ENTRY_INDEX = ${lastEntry.index}, REPLICA = ${this.toString()}`);
                 return this.appendEntries();
               }
               return response;
@@ -182,19 +168,22 @@ export class Replica extends EventEmitter {
       });
   };
 
-  public installSnapshot = () => this._state.snapshot()
-    .then((snapshot) => {
-      const request: RPCInstallSnapshotRequest = {
-        method: RPCMethod.INSTALL_SNAPSHOT_REQUEST,
-        term: this._state.currentTerm,
-        leaderId: this._state.leader,
-        lastIncludedIndex: snapshot.lastIncludedIndex,
-        lastIncludedTerm: snapshot.lastIncludedTerm,
-        offset: 0,
-        data: JSON.stringify(snapshot.data),
-        done: true,
-      };
-      return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this.toString()}`, request)
-        .catch(() => undefined);
-    });
+  public installSnapshot = () => {
+    const snapshot = this._state.getSnapshot();
+    const request: RPCInstallSnapshotRequest = {
+      method: RPCMethod.INSTALL_SNAPSHOT_REQUEST,
+      term: this._state.currentTerm,
+      leaderId: this._state.leader,
+      lastIncludedIndex: snapshot.lastIncludedIndex,
+      lastIncludedTerm: snapshot.lastIncludedTerm,
+      offset: 0,
+      data: JSON.stringify(snapshot.data),
+      done: true,
+    };
+    this._requesting.cancel();
+    this._requesting = axios.CancelToken.source();
+    return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this.toString()}`,
+      request, this._requesting.token)
+      .catch(() => undefined);
+  };
 }
