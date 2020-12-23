@@ -1,0 +1,16 @@
+{
+  "scripts": {
+    "start": "wmr",
+    "build": "wmr build",
+    "serve": "wmr serve"
+  },
+  "dependencies": {
+    "preact": "^10.5.7",
+    "wmr": "^1.0.0"
+  },
+  "eslintConfig": {
+    "globals": {
+      "window": true
+    }
+  }
+}
