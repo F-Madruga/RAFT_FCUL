@@ -11,6 +11,7 @@ export type RaftClientOptions = {
   port?: number,
   secure?: boolean,
   websocket?: boolean,
+  failureTimeout?: number,
   handler?: (response: string) => any,
 };
 
@@ -20,6 +21,7 @@ export class RaftClient {
   private token: string;
   private secure: boolean;
   private websocket?: Promise<WebSocket>;
+  private failureTimeout: number;
   private handler: (response: string) => any;
 
   constructor(options: RaftClientOptions) {
@@ -32,6 +34,7 @@ export class RaftClient {
     if (options.websocket) {
       this.connect();
     }
+    this.failureTimeout = options.failureTimeout || 5000;
     this.handler = options.handler || (() => undefined);
     this.token = '';
   }
@@ -52,8 +55,12 @@ export class RaftClient {
       }));
 
   private send = (request: RPCRequest) => Promise
-    .resolve(axios.post(`http${this.secure ? 's' : ''}://${this.leader}`, request,
-      { headers: { Authorization: `Bearer ${this.token}` } }))
+    .race([
+      axios.post(`http${this.secure ? 's' : ''}://${this.leader}`, request,
+        { headers: { Authorization: `Bearer ${this.token}` } }),
+      new Promise((resolve, reject) => setTimeout(() => reject(new Error('Timeout')),
+        this.failureTimeout)),
+    ])
     .tap(() => logger.debug(`Sent request to ${this.leader}: ${request.method}`))
     .then<RPCResponse>((response) => response.data)
     .tap((response) => logger.debug(`Received response: ${response.method}`));

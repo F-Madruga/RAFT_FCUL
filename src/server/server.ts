@@ -2,6 +2,7 @@ import Promise from 'bluebird';
 import express, { Router } from 'express';
 import bodyParser from 'body-parser';
 import { nanoid } from 'nanoid';
+import cors from 'cors';
 import http from 'http';
 import { EventEmitter } from 'events';
 
@@ -110,93 +111,99 @@ export class RaftServer extends EventEmitter {
       });
       this._state.state = RaftState.FOLLOWER;
     });
-    this._commandServer = express().use(bodyParser.json()).use(Router().post('/', (req, res) => {
+    this._commandServer = express()
+      .use(bodyParser.json())
+      .use(cors() as any)
+      .use(Router().post('/', (req, res) => {
       // if not leader, send leader info
-      if (this._state.state !== RaftState.LEADER) {
-        logger.debug(`Sending leader info: ${this._state.leader || this._host.host}:${this._clientPort}`);
-        const response: RPCLeaderResponse = {
-          method: RPCMethod.LEADER_RESPONSE,
-          message: `${this._state.leader || this._host.host}:${this._clientPort}`,
+        if (this._state.state !== RaftState.LEADER) {
+          logger.debug(`Sending leader info: ${this._state.leader || this._host.host}:${this._clientPort}`);
+          const response: RPCLeaderResponse = {
+            method: RPCMethod.LEADER_RESPONSE,
+            message: `${this._state.leader || this._host.host}:${this._clientPort}`,
+          };
+          return res.json(response);
+        }
+        const token = ((req.headers.authorization || '').match(/Bearer\s*(.*)/) || [])[1];
+        const clientId = token || nanoid(32);
+        const request: RPCClientRequest = req.body;
+        switch (request.method) {
+          case RPCMethod.COMMAND_REQUEST: {
+          // Only replicate if it is a write command
+            return Promise.try(() => this._state.isRead(request.message))
+              .tap((isRead) => isRead || this._replicationManager.replicate(request, clientId))
+              .tap(() => logger.debug(`Processing client request: ${request.message}`))
+              .then((isRead) => this._state.apply(request.message, !isRead))
+              .then((message) => {
+                const response: RPCCommandResponse = {
+                  method: RPCMethod.COMMAND_RESPONSE,
+                  message,
+                  ...(token ? {} : { clientId }),
+                };
+                return res.json(response);
+              });
+          }
+          default:
+            break;
+        }
+        const response: RPCErrorResponse = {
+          method: RPCMethod.ERROR_RESPONSE,
+          message: `Unrecognized method: ${request.method}`,
         };
         return res.json(response);
-      }
-      const token = ((req.headers.authorization || '').match(/Bearer\s*(.*)/) || [])[1];
-      const clientId = token || nanoid(32);
-      const request: RPCClientRequest = req.body;
-      switch (request.method) {
-        case RPCMethod.COMMAND_REQUEST: {
-          // Only replicate if it is a write command
-          return Promise.try(() => this._state.isRead(request.message))
-            .tap((isRead) => isRead || this._replicationManager.replicate(request, clientId))
-            .tap(() => logger.debug(`Processing client request: ${request.message}`))
-            .then((isRead) => this._state.apply(request.message, !isRead))
-            .then((message) => {
-              const response: RPCCommandResponse = {
-                method: RPCMethod.COMMAND_RESPONSE,
-                message,
-                ...(token ? {} : { clientId }),
-              };
-              return res.json(response);
-            });
-        }
-        default:
-          break;
-      }
-      const response: RPCErrorResponse = {
-        method: RPCMethod.ERROR_RESPONSE,
-        message: `Unrecognized method: ${request.method}`,
-      };
-      return res.json(response);
-    }))
+      }))
       .listen(this._clientPort,
         () => logger.info(`Listening for client connections on port ${this._clientPort}`));
-    this._raftServer = express().use(bodyParser.json()).use(Router().post('/', (req, res) => {
-      const request: RPCServerRequest = req.body;
-      switch (request.method) {
-        case RPCMethod.APPEND_ENTRIES_REQUEST:
-          return this._state.ready
-            .then(() => this._replicationManager.append(request))
-            .catch(() => false)
-            .then((success) => {
-              const response: RPCAppendEntriesResponse = {
-                method: RPCMethod.APPEND_ENTRIES_RESPONSE,
-                term: this._state.currentTerm,
-                success,
-              };
-              return res.json(response);
-            });
-        case RPCMethod.REQUEST_VOTE_REQUEST:
-          return this._state.ready
-            .then(() => this._electionManager.processVote(request))
-            .catch(() => false)
-            .then((voteGranted) => {
-              const response: RPCRequestVoteResponse = {
-                method: RPCMethod.REQUEST_VOTE_RESPONSE,
-                term: this._state.currentTerm,
-                voteGranted,
-              };
-              return res.json(response);
-            });
-        case RPCMethod.INSTALL_SNAPSHOT_REQUEST:
-          return this._state.ready
-            .then(() => this._snapshotManager.install(request))
-            .catch(() => undefined)
-            .then(() => {
-              const response: RPCInstallSnapshotResponse = {
-                method: RPCMethod.INSTALL_SNAPSHOT_RESPONSE,
-                term: this._state.currentTerm,
-              };
-              return res.json(response);
-            });
-        default:
-          break;
-      }
-      const response: RPCErrorResponse = {
-        method: RPCMethod.ERROR_RESPONSE,
-        message: `Unrecognized method: ${(request as any).method}`,
-      };
-      return res.json(response);
-    }))
+    this._raftServer = express()
+      .use(bodyParser.json())
+      .use(cors() as any)
+      .use(Router().post('/', (req, res) => {
+        const request: RPCServerRequest = req.body;
+        switch (request.method) {
+          case RPCMethod.APPEND_ENTRIES_REQUEST:
+            return this._state.ready
+              .then(() => this._replicationManager.append(request))
+              .catch(() => false)
+              .then((success) => {
+                const response: RPCAppendEntriesResponse = {
+                  method: RPCMethod.APPEND_ENTRIES_RESPONSE,
+                  term: this._state.currentTerm,
+                  success,
+                };
+                return res.json(response);
+              });
+          case RPCMethod.REQUEST_VOTE_REQUEST:
+            return this._state.ready
+              .then(() => this._electionManager.processVote(request))
+              .catch(() => false)
+              .then((voteGranted) => {
+                const response: RPCRequestVoteResponse = {
+                  method: RPCMethod.REQUEST_VOTE_RESPONSE,
+                  term: this._state.currentTerm,
+                  voteGranted,
+                };
+                return res.json(response);
+              });
+          case RPCMethod.INSTALL_SNAPSHOT_REQUEST:
+            return this._state.ready
+              .then(() => this._snapshotManager.install(request))
+              .catch(() => undefined)
+              .then(() => {
+                const response: RPCInstallSnapshotResponse = {
+                  method: RPCMethod.INSTALL_SNAPSHOT_RESPONSE,
+                  term: this._state.currentTerm,
+                };
+                return res.json(response);
+              });
+          default:
+            break;
+        }
+        const response: RPCErrorResponse = {
+          method: RPCMethod.ERROR_RESPONSE,
+          message: `Unrecognized method: ${(request as any).method}`,
+        };
+        return res.json(response);
+      }))
       .listen(this._serverPort,
         () => logger.info(`Listening for server connections on port ${this._serverPort}`));
   }

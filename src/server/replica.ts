@@ -146,7 +146,9 @@ export class Replica extends EventEmitter {
                 this._sending = false;
                 return this.appendEntries();
               }
-              return Promise.reject(new Error());
+              this._nextIndex = 0;
+              this._sending = false;
+              return this.appendEntries();
             }
             this._state.state = RaftState.FOLLOWER;
             this._state.setCurrentTerm(response.term);
@@ -183,5 +185,5 @@ export class Replica extends EventEmitter {
     return this.RPCRequest<RPCAppendEntriesResponse>(`http://${this.toString()}`,
       request, this._requesting.token)
       .catch(() => undefined);
-  }
+  };
 }
