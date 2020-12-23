@@ -1,53 +1,53 @@
 # vscode
-.vscode
+**/.vscode
 
 # Logs
-logs
-*.log
-npm-debug.log*
+**/logs
+**/*.log
+**/npm-debug.log*
 
 # Runtime data
-pids
-*.pid
-*.seed
+**/pids
+**/*.pid
+**/*.seed
 
 # OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-ehthumbs.db
-Icon?
-Thumbs.db
+**/.DS_Store
+**/.DS_Store?
+**/._*
+**/.Spotlight-V100
+**/ehthumbs.db
+**/Icon?
+**/Thumbs.db
 
 # Babel ES6 compiles files
-dist
-bin
+**/dist
+**/bin
 
 # node-waf configuration
-.lock-wscript
+**/.lock-wscript
 
 # Compiled binary addons (http://nodejs.org/api/addons.html)
-build/Release
+**/build/Release
 
 # Dependency directory
-node_modules
+**/node_modules
 
 # Optional npm cache directory
-.npm
+**/.npm
 
 # Optional REPL history
-.node_repl_history
+**/.node_repl_history
 
 # SSL
-*.pem
+**/*.pem
 
 # Notes
-notes/
+**/notes/
 
 # TODO files
-todo*
-TODO*
+**/todo*
+**/TODO*
 
 # Secrets
 **/*.key*
@@ -56,7 +56,10 @@ TODO*
 !**/*template*
 
 # Pdf
-*.pdf
+**/*.pdf
 
 # SQLite Databases
-*.db
+**/*.db
+
+# Cache directory
+**/.cache

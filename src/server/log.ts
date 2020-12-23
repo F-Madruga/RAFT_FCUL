@@ -1,3 +1,4 @@
+import Promise from 'bluebird';
 import { Op } from 'sequelize';
 
 import logger from '../utils/log.util';

@@ -12,6 +12,7 @@ const { argv } = yargs(process.argv.slice(2)).options({
   config: { type: 'string', alias: 'c' },
   servers: { type: 'string', alias: 's' },
   port: { type: 'number', alias: 'p' },
+  failureTimeout: { type: 'number', alias: 'f' },
   websocket: { type: 'boolean', alias: 'w' },
   interactive: { type: 'boolean', alias: 'i' },
   parallel: { type: 'number', alias: 'P' },
@@ -21,6 +22,7 @@ load(argv.config || process.env.ENV_FILE || '../config/.env-client');
 
 const servers = (argv.servers || process.env.SERVERS || 'localhost').split(',');
 const port = parseInt(`${argv.port || ''}` || process.env.PORT || '8080', 10);
+const failureTimeout = parseInt(`${argv.failureTimeout || ''}` || process.env.FAILURE_TIMEOUT || '5000', 10);
 const websocket = argv.websocket || process.env.WEBSOCKET === 'true' || false;
 const interactive = argv.interactive || process.env.INTERACTIVE === 'true' || false;
 const parallelRequests = parseInt(`${argv.parallel || ''}` || process.env.PARALLEL_REQUESTS || '1', 10);
@@ -56,9 +58,7 @@ const handler = (response: string) => {
       console.log(`    Key: ${key}\n    Value: ${value}`);
       break;
     case 'list_response':
-      console.log(Object.entries(list)
-        .map(([k, v]) => `    Key: ${k}\n    Value: ${v}`)
-        .join('\n'));
+      console.table(Object.entries(list).map(([k, v], i) => ({ '#': i + 1, Key: k, Value: v })));
       break;
     case 'cas_response':
       console.log(`    Key: ${key}\n    Value: ${value}`);
@@ -74,6 +74,7 @@ const client = new RaftClient({
   servers,
   port,
   websocket,
+  failureTimeout,
   ...(websocket ? { handler } : {}),
 });
 logger.info('Started client.');

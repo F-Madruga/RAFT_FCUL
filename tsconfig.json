@@ -64,6 +64,13 @@
     "pretty": true
   },
   "exclude": ["node_modules/**/*"],
-  "include": ["src/server/**/*", "src/client/**/*", "src/utils/**/*", "typings/**/*",
-    ".eslintrc.js", "babel.config.js"]
+  "include": [
+    "src/server/**/*",
+    "src/client/**/*",
+    "src/utils/**/*",
+    "web/**/*",
+    "typings/**/*",
+    ".eslintrc.js",
+    "babel.config.js"
+  ]
 }
